@@ -1,12 +1,12 @@
 # 技術書スターターキット
 
-Vivliostyle による A5 技術書の最小構成です。
+Vivliostyle による技術書の最小構成です。既定の判型は A5 です。
 
 原稿では画像、表、数式、言語指定のコードブロック、Mermaid 図を使えます。`manuscript/02_examples.md` にそれぞれの記述例があります。自分の本を作るときは、不要なサンプル章を `vivliostyle.config.js` の `entry` から外してください。
 
 この README は使える機能とセットアップ方法を案内します。原稿を編集するときの手順と短い記法例は `AGENTS.md`、PDF に組版される完成例は `manuscript/02_examples.md` を参照してください。
 
-Node.js 22.12 以上と npm を使用します。`vivliostyle.config.js` のタイトル、著者、章順を変更し、`manuscript/01.md` を原稿に置き換えてください。章を増やしたら `entry` にファイルを追加します。
+Node.js 22.12 以上と npm を使用します。`vivliostyle.config.js` のタイトル、著者、判型（`size`）、章順を変更し、`manuscript/01.md` を原稿に置き換えてください。章を増やしたら `entry` にファイルを追加します。`npm run check:pdf` は `size` に設定した判型で検証します。
 
 ```sh
 npm ci

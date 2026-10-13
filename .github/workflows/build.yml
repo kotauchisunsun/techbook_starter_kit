@@ -1,4 +1,4 @@
-name: Build A5 book
+name: Build book PDF
 
 on:
   push:
@@ -9,6 +9,18 @@ permissions:
   contents: read
 
 jobs:
+  test:
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
   build:
     runs-on: ubuntu-slim
     timeout-minutes: 15
@@ -22,16 +34,17 @@ jobs:
           cache: npm
       - name: Install fonts and PDF tools
         run: sudo sh scripts/setup.sh
+      - name: Install dependencies
+        run: npm ci
       - name: Build and check PDFs
         run: |
-          npm ci
           npx playwright install --with-deps chromium-headless-shell
           npm run build
           npm run build:print
           npm run check:pdf -- output/pdf/book.pdf output/pdf/book_print.pdf
       - uses: actions/upload-artifact@v7.0.2
         with:
-          name: techbook-a5
+          name: techbook-pdf
           path: output/pdf/*.pdf
           if-no-files-found: error
 
@@ -47,7 +60,7 @@ jobs:
       - run: npm run build:docker
 
   release:
-    needs: build
+    needs: [test, build]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-slim
     timeout-minutes: 5
@@ -56,7 +69,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v8.0.1
         with:
-          name: techbook-a5
+          name: techbook-pdf
           path: output/pdf
 
       - name: Prepare PDFs for release
