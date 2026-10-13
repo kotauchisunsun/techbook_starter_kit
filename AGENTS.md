@@ -13,7 +13,7 @@ Vivliostyle で A5 の技術書を作るためのテンプレートです。原�
 
 1. `manuscript/` に Markdown ファイルを作る。章の順番が分かる名前を付ける。
 2. `vivliostyle.config.js` の `entry` にファイルパスを読ませたい順に追加する。目次はここから生成される。
-3. 画像、数式、言語指定のコードブロック、Mermaid 図を使える。Mermaid は原稿の `mermaid` コードブロックに直接書く。
+3. 画像、表、数式、言語指定のコードブロック、Mermaid 図を使える。Mermaid は原稿の `mermaid` コードブロックに直接書く。
 4. `npm run build` と `npm run check:pdf` を実行し、必要に応じて `npm run preview` で改ページや図表の配置を確認する。
 
 ### 記法の最小例
@@ -22,6 +22,14 @@ Vivliostyle で A5 の技術書を作るためのテンプレートです。原�
 
 ~~~markdown
 ![図の説明](../assets/example.png)
+~~~
+
+#### 表の場合
+
+~~~markdown
+| 項目 | 値 |
+| :--- | ---: |
+| 件数 | 3 |
 ~~~
 
 #### 数式の場合
