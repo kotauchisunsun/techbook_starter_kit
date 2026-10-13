@@ -1,3 +1,5 @@
 # 参考にしたOSS
 
-この本は@kotauchisunsunによるhttps://github.com/kotauchisunsun/techbook_starter_kitを用いて作成されました。
+この本は@kotauchisunsunによる以下のOSSを用いて作成されました。
+
+`https://github.com/kotauchisunsun/techbook_starter_kit`
