@@ -7,7 +7,6 @@
 }
 
 @page {
-  size: A5;
   @footnote {
     border-top: 0.5pt solid #999;
     padding-top: 0.5em;

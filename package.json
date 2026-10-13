@@ -11,6 +11,7 @@
     "build:print": "vivliostyle build --config vivliostyle.print.config.js --preflight press-ready-local --preflight-option gray-scale",
     "build:docker": "docker run --rm -v \"$PWD:/work\" -v /work/node_modules -w /work node:24-bookworm-slim sh -lc 'sh scripts/setup.sh && npm ci && npx playwright install --with-deps chromium-headless-shell && npm run build && npm run build:print && npm run check:pdf -- output/pdf/book.pdf output/pdf/book_print.pdf'",
     "preview": "vivliostyle preview",
+    "test": "node --test scripts/check-pdf.test.mjs",
     "check:pdf": "node scripts/check-pdf.mjs"
   },
   "dependencies": {

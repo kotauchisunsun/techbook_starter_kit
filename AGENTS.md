@@ -1,11 +1,11 @@
 # このリポジトリでの作業
 
-Vivliostyle で A5 の技術書を作るためのテンプレートです。原稿は `manuscript/`、画像などの素材は `assets/` に置きます。
+Vivliostyle で技術書を作るためのテンプレートです。既定の判型は A5 です。原稿は `manuscript/`、画像などの素材は `assets/` に置きます。
 
 ## インストール時
 
 1. Node.js 22.12 以上と npm を用意し、`npm ci` と `npx playwright install chromium-headless-shell` を実行する。
-2. `vivliostyle.config.js` の `title` と `author` を本に合わせて変更する。
+2. `vivliostyle.config.js` の `title`、`author`、必要に応じて判型の `size` を本に合わせて変更する。
 3. `npm run build` と `npm run check:pdf` で通常版を確認する。
 4. 印刷用 PDF が必要な場合だけ、Ghostscript と `pdffonts`・`pdfinfo` をインストールして `npm run build:print` を実行する。Windows では各コマンドを PATH に追加する。Ubuntu や WSL では `ghostscript` と `poppler-utils` を使う。
 
