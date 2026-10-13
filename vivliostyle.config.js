@@ -12,6 +12,7 @@ module.exports = {
   entry: [
     { rel: 'contents', title: '目次' },
     'manuscript/01.md',
+    'manuscript/colophon.md',
   ],
   output: [{ path: 'output/pdf/book.pdf', format: 'pdf', renderMode: 'local' }],
   copyAsset: { excludes: ['output/**'] },
