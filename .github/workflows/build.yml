@@ -19,20 +19,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: '1.4.2'
+          cache: npm
       - name: Install fonts and PDF tools
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends fontconfig fonts-ipafont fonts-noto-cjk poppler-utils ghostscript
       - name: Build and check PDFs
         run: |
-          bun install --frozen-lockfile
+          npm ci
           node node_modules/playwright-core/cli.js install --with-deps --no-shell chromium
-          bun run build
-          bun run build:print
-          bun run check:pdf output/pdf/book.pdf output/pdf/book_print.pdf
+          npm run build
+          npm run build:print
+          npm run check:pdf -- output/pdf/book.pdf output/pdf/book_print.pdf
       - uses: actions/upload-artifact@v4
         with:
           name: techbook-a5
