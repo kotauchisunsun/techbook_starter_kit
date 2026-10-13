@@ -18,7 +18,7 @@
     "@mitsuharu/vivliostyle-theme-noto-sans-jp": "0.1.4",
     "@vivliostyle/cli": "11.3.3",
     "@vivliostyle/theme-base": "3.0.0",
-    "@vivliostyle/theme-techbook": "2.0.1",
+    "@vivliostyle/theme-techbook": "3.0.0",
     "press-ready": "4.0.3"
   },
   "devDependencies": {
