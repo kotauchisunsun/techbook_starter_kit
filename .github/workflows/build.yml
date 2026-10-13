@@ -1,8 +1,9 @@
-name: Build book PDF
+name: Build and publish PDFs
 
 on:
   push:
-  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -22,12 +23,17 @@ jobs:
       - run: npm test
 
   build:
+    needs: test
     runs-on: ubuntu-slim
-    timeout-minutes: 15
+    timeout-minutes: 20
+    permissions:
+      contents: write
     env:
       CI: true
     steps:
       - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v7.1.0
         with:
           node-version: '24'
@@ -35,10 +41,11 @@ jobs:
       - name: Install fonts and PDF tools
         run: sudo sh scripts/setup.sh
       - name: Install dependencies
-        run: npm ci
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium-headless-shell
       - name: Build and check PDFs
         run: |
-          npx playwright install --with-deps chromium-headless-shell
           npm run build
           npm run build:print
           npm run check:pdf -- output/pdf/book.pdf output/pdf/book_print.pdf
@@ -47,32 +54,8 @@ jobs:
           name: techbook-pdf
           path: output/pdf/*.pdf
           if-no-files-found: error
-
-  docker-build:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v7.0.1
-      - uses: actions/setup-node@v7.1.0
-        with:
-          node-version: '24'
-      - run: npm run build:docker
-
-  release:
-    needs: [test, build]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-slim
-    timeout-minutes: 5
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/download-artifact@v8.0.1
-        with:
-          name: techbook-pdf
-          path: output/pdf
-
       - name: Prepare PDFs for release
+        if: github.ref == 'refs/heads/main'
         id: release
         run: |
           release_date=$(TZ=Asia/Tokyo date +'%Y-%m-%d-%H%M%S')
@@ -82,6 +65,7 @@ jobs:
           cp output/pdf/book_print.pdf "release/techbook_${release_date}_print.pdf"
 
       - name: Publish PDFs to Releases
+        if: github.ref == 'refs/heads/main'
         uses: svenstaro/upload-release-action@v2
         with:
           file: release/techbook_*.pdf

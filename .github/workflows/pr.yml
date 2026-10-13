@@ -1,0 +1,85 @@
+name: Check pull request PDFs
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
+  build:
+    runs-on: ubuntu-slim
+    timeout-minutes: 15
+    outputs:
+      pdf_url: ${{ steps.pdf.outputs.artifact-url }}
+      print_pdf_url: ${{ steps.print_pdf.outputs.artifact-url }}
+    env:
+      CI: true
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install fonts and PDF tools
+        run: sudo sh scripts/setup.sh
+      - name: Install dependencies
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium-headless-shell
+      - name: Build and check PDFs
+        run: |
+          npm run build
+          npm run build:print
+          npm run check:pdf -- output/pdf/book.pdf output/pdf/book_print.pdf
+      - uses: actions/upload-artifact@v7.0.2
+        id: pdf
+        with:
+          path: output/pdf/book.pdf
+          archive: false
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7.0.2
+        id: print_pdf
+        with:
+          path: output/pdf/book_print.pdf
+          archive: false
+          if-no-files-found: error
+
+  docker-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '24'
+      - run: npm run build:docker
+
+  comment:
+    needs: build
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: marocchino/sticky-pull-request-comment@v3
+        with:
+          header: pdf-build
+          message: |
+            ビルドした PDF:
+            - [通常版 PDF](${{ needs.build.outputs.pdf_url }})
+            - [印刷用 PDF](${{ needs.build.outputs.print_pdf_url }})
