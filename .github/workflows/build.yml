@@ -27,6 +27,7 @@ jobs:
       - name: Build and check PDFs
         run: |
           npm ci
+          npx playwright install --with-deps chromium-headless-shell
           npm run build
           npm run build:print
           npm run check:pdf -- output/pdf/book.pdf output/pdf/book_print.pdf

@@ -12,9 +12,11 @@ module.exports = {
   entry: [
     { rel: 'contents', title: '目次' },
     'manuscript/01.md',
+    'manuscript/02_examples.md',
     'manuscript/oss.md',
   ],
   output: [{ path: 'output/pdf/book.pdf', format: 'pdf', renderMode: 'local' }],
   copyAsset: { excludes: ['output/**'] },
+  documentProcessor: require('./scripts/mermaid.js'),
   toc: { title: '目次', sectionDepth: 2 },
 };

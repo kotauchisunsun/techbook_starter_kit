@@ -17,6 +17,8 @@
 p { text-indent: 1em; margin: 0; }
 nav[role='doc-toc'] { line-height: 1.6; }
 table { font-size: 8pt; }
+pre { break-inside: avoid; }
+img[alt^='Mermaid diagram'] { max-height: 135mm; max-width: 100%; object-fit: contain; }
 section.footnotes { display: none; }
 a[href^='#fn'] { font-size: 0.8em; vertical-align: super; }
 :not(.footnote) > a[href^='http']::before { footnote-policy: line; }
