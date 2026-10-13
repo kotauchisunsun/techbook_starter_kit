@@ -21,9 +21,7 @@ jobs:
           node-version: '24'
           cache: npm
       - name: Install fonts and PDF tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends fontconfig fonts-ipafont fonts-noto-cjk poppler-utils ghostscript
+        run: sudo sh scripts/setup.sh
       - name: Build and check PDFs
         run: |
           npm ci
@@ -36,6 +34,17 @@ jobs:
           name: techbook-a5
           path: output/pdf/*.pdf
           if-no-files-found: error
+
+  docker-build:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '24'
+      - run: npm run build:docker
 
   release:
     needs: build

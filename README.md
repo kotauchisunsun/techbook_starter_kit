@@ -17,6 +17,8 @@ npm run check:pdf
 
 通常版は `output/pdf/book.pdf` に生成されます。プレビューは `npm run preview`、共通の体裁の調整は `custom.css` で行います。
 
+Docker を使う場合は、WSL または Linux で `npm run build:docker` を実行します。通常版と印刷版の PDF を `output/pdf/` に生成します。
+
 画像などの素材は `assets/` に入れることを推奨します。`manuscript/` の原稿からは `![図の説明](../assets/example.png)` のように参照します。
 
 Mermaid 図は原稿内の `mermaid` コードブロックに直接書きます。ビルド時に PDF 用の画像として描画します。記述例は `manuscript/02_examples.md` を参照してください。
@@ -25,4 +27,4 @@ Mermaid 図は原稿内の `mermaid` コードブロックに直接書きます�
 
 印刷用のグレースケール PDF は `npm run build:print` で作成します。Windows でも実行できますが、Ghostscript（`gswin64c` または `gswin32c`）と Xpdf または Poppler の `pdffonts`、`pdfinfo` を PATH に追加してください。Ubuntu や WSL では `ghostscript` と `poppler-utils` をインストールします。出力先は `output/pdf/book_print.pdf` です。
 
-GitHub Actions は push と pull request で両方の PDF をビルドして確認します。`main` への push でビルドが成功すると、日時付きの通常版と印刷版を GitHub Release に公開します。
+GitHub Actions は push と pull request で両方の PDF をビルドして確認し、pull request では Docker 版のビルドも実行します。`main` への push でビルドが成功すると、日時付きの通常版と印刷版を GitHub Release に公開します。
