@@ -2,7 +2,7 @@
 
 Vivliostyle による A5 技術書の最小構成です。
 
-Node.js 22 以上と npm を使用します。`vivliostyle.config.js` のタイトル、著者、章順を変更し、`manuscript/01.md` を原稿に置き換えてください。章を増やしたら `entry` にファイルを追加します。
+Node.js 22.12 以上と npm を使用します。`vivliostyle.config.js` のタイトル、著者、章順を変更し、`manuscript/01.md` を原稿に置き換えてください。章を増やしたら `entry` にファイルを追加します。
 
 ```sh
 npm ci

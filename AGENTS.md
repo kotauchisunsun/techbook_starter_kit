@@ -4,7 +4,7 @@ Vivliostyle で A5 の技術書を作るためのテンプレートです。原�
 
 ## インストール時
 
-1. Node.js 22 以上と npm を用意し、`npm ci` を実行する。
+1. Node.js 22.12 以上と npm を用意し、`npm ci` を実行する。
 2. `vivliostyle.config.js` の `title` と `author` を本に合わせて変更する。
 3. `npm run build` と `npm run check:pdf` で通常版を確認する。
 4. 印刷用 PDF が必要な場合だけ、Ghostscript と `pdffonts`・`pdfinfo` をインストールして `npm run build:print` を実行する。Windows では各コマンドを PATH に追加する。Ubuntu や WSL では `ghostscript` と `poppler-utils` を使う。
