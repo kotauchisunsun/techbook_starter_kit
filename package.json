@@ -3,7 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "license": "MIT",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "scripts": {
     "build": "vivliostyle build",
     "build:print": "vivliostyle build --config vivliostyle.print.config.js --preflight press-ready-local --preflight-option gray-scale",
@@ -11,11 +13,21 @@
     "check:pdf": "node scripts/check-pdf.mjs"
   },
   "dependencies": {
-    "@vivliostyle/cli": "9.7.2",
+    "@mitsuharu/vivliostyle-theme-noto-sans-jp": "0.1.4",
+    "@vivliostyle/cli": "11.3.3",
     "@vivliostyle/theme-base": "2.1.0",
     "@vivliostyle/theme-techbook": "2.0.1",
-    "@mitsuharu/vivliostyle-theme-noto-sans-jp": "0.1.4",
     "press-ready": "4.0.3"
   },
-  "devDependencies": { "pdf-lib": "1.17.1" }
+  "devDependencies": {
+    "pdf-lib": "1.17.1"
+  },
+  "overrides": {
+    "dompurify": "3.4.17",
+    "handlebars": "4.7.10",
+    "prismjs": "1.30.0",
+    "trim": "0.0.3",
+    "valibot": "1.5.0",
+    "press-ready": { "uuid": "11.1.1" }
+  }
 }
