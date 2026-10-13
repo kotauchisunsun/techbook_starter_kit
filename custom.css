@@ -1,0 +1,22 @@
+:root {
+  --vs-page--margin-top: 16mm;
+  --vs-page--margin-bottom: 16mm;
+  --vs-page--margin-inner: 15mm;
+  --vs-page--margin-outer: 15mm;
+  --vs--table-cell-padding-inline: 0.35em;
+}
+
+@page {
+  size: A5;
+  @footnote {
+    border-top: 0.5pt solid #999;
+    padding-top: 0.5em;
+  }
+}
+
+p { text-indent: 1em; margin: 0; }
+nav[role='doc-toc'] { line-height: 1.6; }
+table { font-size: 8pt; }
+section.footnotes { display: none; }
+a[href^='#fn'] { font-size: 0.8em; vertical-align: super; }
+:not(.footnote) > a[href^='http']::before { footnote-policy: line; }

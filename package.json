@@ -1,0 +1,22 @@
+{
+  "name": "techbook-starter-kit",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "packageManager": "bun@1.4.2",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "build": "vivliostyle build",
+    "build:print": "vivliostyle build --config vivliostyle.print.config.js --preflight press-ready-local --preflight-option gray-scale",
+    "preview": "vivliostyle preview",
+    "check:pdf": "node scripts/check-pdf.mjs"
+  },
+  "dependencies": {
+    "@vivliostyle/cli": "9.7.2",
+    "@vivliostyle/theme-base": "2.1.0",
+    "@vivliostyle/theme-techbook": "2.0.1",
+    "@mitsuharu/vivliostyle-theme-noto-sans-jp": "0.1.4",
+    "press-ready": "4.0.3"
+  },
+  "devDependencies": { "pdf-lib": "1.17.1" }
+}

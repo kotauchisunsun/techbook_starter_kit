@@ -1,0 +1,40 @@
+name: Build A5 book
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CI: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.2'
+      - name: Install fonts and PDF tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends fontconfig fonts-ipafont fonts-noto-cjk poppler-utils ghostscript
+      - name: Build and check PDFs
+        run: |
+          bun install --frozen-lockfile
+          node node_modules/playwright-core/cli.js install --with-deps --no-shell chromium
+          bun run build
+          bun run build:print
+          bun run check:pdf output/pdf/book.pdf output/pdf/book_print.pdf
+      - uses: actions/upload-artifact@v4
+        with:
+          name: techbook-a5
+          path: output/pdf/*.pdf
+          if-no-files-found: error
