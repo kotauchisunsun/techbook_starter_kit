@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1480" height="2100" viewBox="0 0 1480 2100">
+  <rect width="1480" height="2100" fill="#142b3a"/>
+  <path d="M0 330H1480M0 590H1480M0 850H1480M0 1110H1480M0 1370H1480M0 1630H1480M0 1890H1480" stroke="#254554" stroke-width="2"/>
+  <path d="M210 0V2100M470 0V2100M730 0V2100M990 0V2100M1250 0V2100" stroke="#254554" stroke-width="2"/>
+  <circle cx="1180" cy="440" r="350" fill="#ec805f"/>
+  <circle cx="1180" cy="440" r="240" fill="none" stroke="#142b3a" stroke-width="3"/>
+  <path d="M120 1450H1360" stroke="#ec805f" stroke-width="12"/>
+  <text x="120" y="1210" fill="#f9f6ed" font-family="Noto Sans JP, Noto Sans CJK JP, sans-serif" font-size="142" font-weight="700">本のタイトル</text>
+  <text x="125" y="1370" fill="#b7cbd1" font-family="Noto Sans JP, Noto Sans CJK JP, sans-serif" font-size="48" letter-spacing="8">TECH BOOK STARTER KIT</text>
+  <text x="120" y="1870" fill="#f9f6ed" font-family="Noto Sans JP, Noto Sans CJK JP, sans-serif" font-size="68">著者名</text>
+</svg>

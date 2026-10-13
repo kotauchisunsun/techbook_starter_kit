@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1480" height="2100" viewBox="0 0 1480 2100">
+  <rect width="1480" height="2100" fill="#142b3a"/>
+  <path d="M120 180H1360" stroke="#ec805f" stroke-width="12"/>
+  <circle cx="1340" cy="1730" r="410" fill="#254554"/>
+  <circle cx="1340" cy="1730" r="300" fill="none" stroke="#ec805f" stroke-width="3"/>
+  <text x="120" y="460" fill="#f9f6ed" font-family="Noto Sans JP, Noto Sans CJK JP, sans-serif" font-size="92" font-weight="700">この本について</text>
+  <text x="125" y="650" fill="#b7cbd1" font-family="Noto Sans JP, Noto Sans CJK JP, sans-serif" font-size="52">ここに本の紹介文を記入してください。</text>
+  <text x="120" y="1910" fill="#f9f6ed" font-family="Noto Sans JP, Noto Sans CJK JP, sans-serif" font-size="58">本のタイトル</text>
+  <text x="120" y="1990" fill="#b7cbd1" font-family="Noto Sans JP, Noto Sans CJK JP, sans-serif" font-size="46">著者名</text>
+</svg>

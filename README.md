@@ -21,6 +21,8 @@ npm run check:pdf
 
 Mermaid 図は原稿内の `mermaid` コードブロックに直接書きます。ビルド時に PDF 用の画像として描画します。記述例は `manuscript/02_examples.md` を参照してください。
 
-印刷用のグレースケール PDF は `npm run build:print` で作成します。Windows でも実行できますが、Ghostscript（`gswin64c` または `gswin32c`）と Xpdf または Poppler の `pdffonts`、`pdfinfo` を PATH に追加してください。Ubuntu や WSL では `ghostscript` と `poppler-utils` をインストールします。出力先は `output/pdf/book_print.pdf` です。表紙を追加する場合は通常版の `entry` に cover エントリを追加します。印刷用設定は cover エントリを除外します。
+表紙と裏表紙は `assets/front-cover.svg` と `assets/back-cover.svg` にあります。本に合わせて文字と色を編集してください。通常版 PDF には両方を含め、印刷用 PDF からは除外します。
+
+印刷用のグレースケール PDF は `npm run build:print` で作成します。Windows でも実行できますが、Ghostscript（`gswin64c` または `gswin32c`）と Xpdf または Poppler の `pdffonts`、`pdfinfo` を PATH に追加してください。Ubuntu や WSL では `ghostscript` と `poppler-utils` をインストールします。出力先は `output/pdf/book_print.pdf` です。
 
 GitHub Actions は push と pull request で両方の PDF をビルドして確認します。`main` への push でビルドが成功すると、日時付きの通常版と印刷版を GitHub Release に公開します。
