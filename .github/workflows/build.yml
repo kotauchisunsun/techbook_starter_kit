@@ -36,3 +36,33 @@ jobs:
           name: techbook-a5
           path: output/pdf/*.pdf
           if-no-files-found: error
+
+  release:
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: techbook-a5
+          path: output/pdf
+
+      - name: Prepare PDFs for release
+        id: release
+        run: |
+          release_date=$(TZ=Asia/Tokyo date +'%Y-%m-%d-%H%M%S')
+          echo "tag=$release_date" >> "$GITHUB_OUTPUT"
+          mkdir -p release
+          cp output/pdf/book.pdf "release/techbook_${release_date}.pdf"
+          cp output/pdf/book_print.pdf "release/techbook_${release_date}_print.pdf"
+
+      - name: Publish PDFs to Releases
+        uses: svenstaro/upload-release-action@v2
+        with:
+          file: release/techbook_*.pdf
+          file_glob: true
+          tag: ${{ steps.release.outputs.tag }}
+          target_commit: ${{ github.sha }}
