@@ -2,7 +2,7 @@
 
 Vivliostyle による A5 技術書の最小構成です。
 
-原稿では画像、数式、言語指定のコードブロック、Mermaid 図を使えます。`manuscript/02_examples.md` にそれぞれの記述例があります。自分の本を作るときは、不要なサンプル章を `vivliostyle.config.js` の `entry` から外してください。
+原稿では画像、表、数式、言語指定のコードブロック、Mermaid 図を使えます。`manuscript/02_examples.md` にそれぞれの記述例があります。自分の本を作るときは、不要なサンプル章を `vivliostyle.config.js` の `entry` から外してください。
 
 この README は使える機能とセットアップ方法を案内します。原稿を編集するときの手順と短い記法例は `AGENTS.md`、PDF に組版される完成例は `manuscript/02_examples.md` を参照してください。
 
