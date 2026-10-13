@@ -27,7 +27,6 @@ jobs:
       - name: Build and check PDFs
         run: |
           npm ci
-          node node_modules/playwright-core/cli.js install --with-deps --no-shell chromium
           npm run build
           npm run build:print
           npm run check:pdf -- output/pdf/book.pdf output/pdf/book_print.pdf
