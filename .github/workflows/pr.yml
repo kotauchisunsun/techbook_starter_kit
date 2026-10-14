@@ -23,6 +23,7 @@ jobs:
     runs-on: ubuntu-slim
     timeout-minutes: 15
     outputs:
+      built_at: ${{ steps.build.outputs.built_at }}
       pdf_url: ${{ steps.pdf.outputs.artifact-url }}
       print_pdf_url: ${{ steps.print_pdf.outputs.artifact-url }}
     env:
@@ -40,10 +41,12 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium-headless-shell
       - name: Build and check PDFs
+        id: build
         run: |
           npm run build
           npm run build:print
           npm run check:pdf -- output/pdf/book.pdf output/pdf/book_print.pdf
+          echo "built_at=$(TZ=Asia/Tokyo date +'%Y-%m-%d %H:%M JST')" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v7.0.2
         id: pdf
         with:
@@ -69,7 +72,7 @@ jobs:
 
   comment:
     needs: build
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    if: ${{ always() && github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:
@@ -77,9 +80,15 @@ jobs:
       pull-requests: write
     steps:
       - uses: marocchino/sticky-pull-request-comment@v3
+        if: needs.build.result == 'success'
         with:
           header: pdf-build
           message: |
-            ビルドした PDF:
+            ビルドしたPDF(${{ needs.build.outputs.built_at }}):
             - [通常版 PDF](${{ needs.build.outputs.pdf_url }})
             - [印刷用 PDF](${{ needs.build.outputs.print_pdf_url }})
+      - uses: marocchino/sticky-pull-request-comment@v3
+        if: ${{ failure() && needs.build.result == 'failure' }}
+        with:
+          header: pdf-build
+          message: ❌pdfのビルドに失敗しました。
