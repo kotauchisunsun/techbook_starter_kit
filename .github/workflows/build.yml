@@ -46,8 +46,7 @@ jobs:
           npx playwright install --with-deps chromium-headless-shell
       - name: Build and check PDFs
         run: |
-          npm run build
-          npm run build:print
+          npm run build:all
           npm run check:pdf -- output/pdf/book.pdf output/pdf/book_print.pdf
       - uses: actions/upload-artifact@v7.0.2
         with:

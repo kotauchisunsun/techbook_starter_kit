@@ -1,0 +1,96 @@
+name: Check Dependabot PDF rendering
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  visual-regression:
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      CI: true
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check out the commit before Dependabot's changes
+        run: |
+          baseline=$(git merge-base HEAD "${{ github.event.pull_request.base.sha }}")
+          git worktree add --detach "$RUNNER_TEMP/baseline" "$baseline"
+      - name: Build, render, and compare PDFs in Docker
+        run: |
+          docker run --rm \
+            -e CI=true \
+            -v "$GITHUB_WORKSPACE:/work/current" \
+            -v "$RUNNER_TEMP/baseline:/work/baseline" \
+            -v /work/current/node_modules \
+            -v /work/baseline/node_modules \
+            -w /work/current node:24-trixie-slim sh -ec '
+              sh scripts/setup.sh
+              apt-get install -y --no-install-recommends imagemagick
+              for dir in /work/baseline /work/current; do
+                cd "$dir"
+                npm ci
+                npx playwright install --with-deps chromium-headless-shell
+                npm run build
+                npm run build:print
+                npm run check:pdf -- output/pdf/book.pdf output/pdf/book_print.pdf
+              done
+              cd /work/current
+              sh scripts/render-pdf-pages.sh /work/baseline/output/pdf output/visual/before
+              sh scripts/render-pdf-pages.sh output/pdf output/visual/after
+              node scripts/compare-pdf-pages.mjs output/visual/before output/visual/after output/visual/diff output/visual/report.json
+            '
+      - name: Record build failure
+        if: failure()
+        run: |
+          mkdir -p output/visual
+          if [ ! -f output/visual/report.json ]; then
+            printf '%s\n' '{"errors":[{"reason":"PDF の生成またはページ画像への変換に失敗しました。ワークフローのログを確認してください。"}]}' > output/visual/report.json
+          fi
+      - uses: actions/upload-artifact@v7.0.2
+        id: visual
+        if: failure()
+        with:
+          name: pdf-visual-regression
+          path: output/visual/
+          if-no-files-found: error
+      - uses: actions/github-script@v9
+        if: failure()
+        env:
+          ARTIFACT_URL: ${{ steps.visual.outputs.artifact-url }}
+        with:
+          script: |
+            const fs = require('node:fs');
+            const {errors} = JSON.parse(fs.readFileSync('output/visual/report.json', 'utf8'));
+            const lines = ['❌ PDF のビジュアル回帰テストに失敗しました。'];
+            for (const {page, reason, images} of errors) {
+              lines.push('', page ? `### ${page}` : '### ビルドエラー', reason);
+              if (images) for (const [kind, label] of [['before', '更新前'], ['after', '更新後'], ['diff', '差分']]) {
+                lines.push(`- ${label}: ${images[kind] ? `\`${images[kind]}\`` : '画像なし'}`);
+              }
+            }
+            const run = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            lines.push('', `[画像一式または実行ログ](${process.env.ARTIFACT_URL || run})`);
+            fs.writeFileSync('vrt-comment.md', lines.join('\n'));
+      - uses: marocchino/sticky-pull-request-comment@v3
+        if: failure()
+        with:
+          header: pdf-visual-regression
+          path: vrt-comment.md
+      - uses: marocchino/sticky-pull-request-comment@v3
+        if: success()
+        with:
+          header: pdf-visual-regression
+          message: PDF の表示に差分はありませんでした。
