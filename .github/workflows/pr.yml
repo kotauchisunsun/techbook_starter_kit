@@ -24,6 +24,7 @@ jobs:
     timeout-minutes: 15
     outputs:
       built_at: ${{ steps.build.outputs.built_at }}
+      lint_report: ${{ steps.lint.outputs.report }}
       pdf_url: ${{ steps.pdf.outputs.artifact-url }}
       print_pdf_url: ${{ steps.print_pdf.outputs.artifact-url }}
     env:
@@ -40,6 +41,19 @@ jobs:
         run: |
           npm ci
           npx playwright install --with-deps chromium-headless-shell
+      - name: Lint manuscripts
+        id: lint
+        run: |
+          if npm run lint > "$RUNNER_TEMP/textlint.log" 2>&1; then
+            echo '指摘はありませんでした。' > "$RUNNER_TEMP/textlint.log"
+          fi
+          cat "$RUNNER_TEMP/textlint.log"
+          delimiter="TEXTLINT_RESULT_$(date +%s%N)"
+          {
+            echo "report<<$delimiter"
+            cat "$RUNNER_TEMP/textlint.log"
+            echo "$delimiter"
+          } >> "$GITHUB_OUTPUT"
       - name: Build and check PDFs
         id: build
         run: |
@@ -80,7 +94,16 @@ jobs:
       pull-requests: write
     steps:
       - uses: marocchino/sticky-pull-request-comment@v3
-        if: needs.build.result == 'success'
+        if: ${{ always() }}
+        with:
+          header: textlint
+          message: |
+            textlintの結果
+            ~~~text
+            ${{ needs.build.outputs.lint_report || '実行できませんでした。' }}
+            ~~~
+      - uses: marocchino/sticky-pull-request-comment@v3
+        if: ${{ always() && needs.build.result == 'success' }}
         with:
           header: pdf-build
           message: |
@@ -88,7 +111,7 @@ jobs:
             - [通常版 PDF](${{ needs.build.outputs.pdf_url }})
             - [印刷用 PDF](${{ needs.build.outputs.print_pdf_url }})
       - uses: marocchino/sticky-pull-request-comment@v3
-        if: ${{ failure() && needs.build.result == 'failure' }}
+        if: ${{ always() && needs.build.result == 'failure' }}
         with:
           header: pdf-build
           message: ❌pdfのビルドに失敗しました。

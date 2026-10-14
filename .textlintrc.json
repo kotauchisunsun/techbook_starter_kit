@@ -1,0 +1,13 @@
+{
+  "filters": {
+    "allowlist": {
+      "allow": ["/\\$\\$[\\s\\S]*?\\$\\$/m"]
+    },
+    "node-types": {
+      "nodeTypes": ["CodeBlock"]
+    }
+  },
+  "rules": {
+    "preset-japanese": true
+  }
+}
