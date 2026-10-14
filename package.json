@@ -11,6 +11,7 @@
     "build:print": "vivliostyle build --config vivliostyle.print.config.js --preflight press-ready-local --preflight-option gray-scale",
     "build:docker": "docker run --rm -v \"$PWD:/work\" -v /work/node_modules -w /work node:24-bookworm-slim sh -lc 'sh scripts/setup.sh && npm ci && npx playwright install --with-deps chromium-headless-shell && npm run build && npm run build:print && npm run check:pdf -- output/pdf/book.pdf output/pdf/book_print.pdf'",
     "preview": "vivliostyle preview",
+    "lint": "textlint \"manuscript/**/*.md\"",
     "test": "node --test scripts/check-pdf.test.mjs",
     "check:pdf": "node scripts/check-pdf.mjs"
   },
@@ -25,7 +26,11 @@
     "@vivliostyle/vfm": "2.7.2",
     "mermaid-isomorphic": "3.1.0",
     "pdf-lib": "1.17.1",
-    "playwright": "1.64.0"
+    "playwright": "1.64.0",
+    "textlint": "15.8.0",
+    "textlint-filter-rule-allowlist": "4.0.0",
+    "textlint-filter-rule-node-types": "1.1.0",
+    "textlint-rule-preset-japanese": "10.0.4"
   },
   "overrides": {
     "dompurify": "3.4.17",
