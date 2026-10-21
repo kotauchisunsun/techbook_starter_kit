@@ -63,7 +63,7 @@ jobs:
         id: visual
         if: failure()
         with:
-          name: pdf-visual-regression
+          name: pr-${{ github.event.pull_request.number }}-visual-regression
           path: output/visual/
           if-no-files-found: error
       - uses: actions/github-script@v9

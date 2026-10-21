@@ -63,12 +63,14 @@ jobs:
       - uses: actions/upload-artifact@v7.0.2
         id: pdf
         with:
+          name: pr-${{ github.event.pull_request.number }}-pdf
           path: output/pdf/book.pdf
           archive: false
           if-no-files-found: error
       - uses: actions/upload-artifact@v7.0.2
         id: print_pdf
         with:
+          name: pr-${{ github.event.pull_request.number }}-print-pdf
           path: output/pdf/book_print.pdf
           archive: false
           if-no-files-found: error
