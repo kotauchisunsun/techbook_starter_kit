@@ -49,6 +49,7 @@ jobs:
           npm run build:all
           npm run check:pdf -- output/pdf/book.pdf output/pdf/book_print.pdf
       - uses: actions/upload-artifact@v7.0.2
+        if: github.event_name == 'workflow_dispatch'
         with:
           name: techbook-pdf
           path: output/pdf/*.pdf
