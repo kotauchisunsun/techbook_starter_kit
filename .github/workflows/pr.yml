@@ -60,19 +60,28 @@ jobs:
           npm run build:all
           npm run check:pdf -- output/pdf/book.pdf output/pdf/book_print.pdf
           echo "built_at=$(TZ=Asia/Tokyo date +'%Y-%m-%d %H:%M JST')" >> "$GITHUB_OUTPUT"
+      # archive:false uses the filename, not the name input. Give each PR
+      # its own upload copies; leave build/release source PDFs unchanged.
+      - name: Prepare PR-specific PDF filenames
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/pr-artifacts"
+          cp output/pdf/book.pdf "$RUNNER_TEMP/pr-artifacts/pr-${PR_NUMBER}-pdf.pdf"
+          cp output/pdf/book_print.pdf "$RUNNER_TEMP/pr-artifacts/pr-${PR_NUMBER}-print-pdf.pdf"
       - uses: actions/upload-artifact@v7.0.2
         id: pdf
         with:
-          name: pr-${{ github.event.pull_request.number }}-pdf
-          path: output/pdf/book.pdf
+          name: pr-${{ github.event.pull_request.number }}-pdf.pdf
+          path: ${{ runner.temp }}/pr-artifacts/pr-${{ github.event.pull_request.number }}-pdf.pdf
           archive: false
           if-no-files-found: error
           retention-days: 3
       - uses: actions/upload-artifact@v7.0.2
         id: print_pdf
         with:
-          name: pr-${{ github.event.pull_request.number }}-print-pdf
-          path: output/pdf/book_print.pdf
+          name: pr-${{ github.event.pull_request.number }}-print-pdf.pdf
+          path: ${{ runner.temp }}/pr-artifacts/pr-${{ github.event.pull_request.number }}-print-pdf.pdf
           archive: false
           if-no-files-found: error
           retention-days: 3

@@ -6,6 +6,7 @@ on:
 
 permissions:
   actions: write
+  pull-requests: read
 
 jobs:
   cleanup:
@@ -17,13 +18,24 @@ jobs:
           script: |
             const {owner, repo} = context.repo;
             const number = context.issue.number;
-            for (const suffix of ['pdf', 'print-pdf', 'visual-regression']) {
+            // Use only exact, PR-specific names. Never select generic book.pdf,
+            // branch names or commit SHAs: those can belong to other PRs.
+            for (const suffix of ['pdf.pdf', 'print-pdf.pdf', 'pdf', 'print-pdf', 'visual-regression']) {
               const name = `pr-${number}-${suffix}`;
               const artifacts = await github.paginate(github.rest.actions.listArtifactsForRepo, {
                 owner, repo, name, per_page: 100
               });
               for (const artifact of artifacts) {
-                await github.rest.actions.deleteArtifact({owner, repo, artifact_id: artifact.id});
+                if (artifact.name !== name || artifact.expired) continue;
+                // Avoid cleaning an explicitly reopened PR after the close event.
+                const {data: pr} = await github.rest.pulls.get({owner, repo, pull_number: number});
+                if (pr.state !== 'closed') return;
+                try {
+                  await github.rest.actions.deleteArtifact({owner, repo, artifact_id: artifact.id});
+                } catch (error) {
+                  if (error.status !== 404) throw error;
+                  continue; // Already removed by another cleanup or retention expiry.
+                }
                 core.info(`Deleted ${artifact.name} (${artifact.id})`);
               }
             }
