@@ -66,6 +66,7 @@ jobs:
           name: pr-${{ github.event.pull_request.number }}-visual-regression
           path: output/visual/
           if-no-files-found: error
+          retention-days: 3
       - uses: actions/github-script@v9
         if: failure()
         env:

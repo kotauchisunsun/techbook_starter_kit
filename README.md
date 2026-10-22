@@ -32,3 +32,5 @@ Mermaid 図は原稿内の `mermaid` コードブロックに直接書きます�
 GitHub Actions は push 用の `build.yml` と pull request 用の `pr.yml` に分かれています。pull request では PDF ビルドとは別に textlint を実行し、校正の指摘があってもビルドを続けます。Docker 版のビルドも実行します。同じリポジトリ内のブランチから作った pull request には、textlint の結果と通常版・印刷版 PDF のリンクを固定コメントで案内します。`main` への push でビルドが成功すると、日時付きの通常版と印刷版を GitHub Release に公開します。
 
 Dependabot の pull request では、更新前後の PDF の表示を比較します。差分があれば CI が失敗し、該当ページと画像一式へのリンクを固定コメントで案内します。
+
+PR でアップロードする通常版・印刷版 PDF と、Dependabot の表示比較で失敗した際の画像一式は、アップロードから 3 日間保持します。PR を閉じた際の削除処理は引き続き有効です。期限切れまたは削除後は、コメント内の Artifact リンクからファイルを取得できなくなります。この保持期間は新しくアップロードする Artifact に適用され、既存の Artifact や手動実行の保持期間は変更しません。
