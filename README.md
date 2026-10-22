@@ -34,3 +34,5 @@ GitHub Actions は push 用の `build.yml` と pull request 用の `pr.yml` に�
 Dependabot の pull request では、更新前後の PDF の表示を比較します。差分があれば CI が失敗し、該当ページと画像一式へのリンクを固定コメントで案内します。
 
 PR でアップロードする通常版・印刷版 PDF と、Dependabot の表示比較で失敗した際の画像一式は、アップロードから 3 日間保持します。PR を閉じた際の削除処理は引き続き有効です。期限切れまたは削除後は、コメント内の Artifact リンクからファイルを取得できなくなります。この保持期間は新しくアップロードする Artifact に適用され、既存の Artifact や手動実行の保持期間は変更しません。
+
+PR の PDF は、アップロード時のみ `pr-<PR番号>-pdf.pdf` と `pr-<PR番号>-print-pdf.pdf` にコピーします。ZIP 化せず直接 PDF をダウンロードできる動作と、ビルド元の `book.pdf` / `book_print.pdf` は維持します。PR を閉じると、その PR 番号を含む完全一致名の Artifact のみ削除します。従来の PR 番号付き ZIP・比較画像も対象です。他 PR と区別できない既存の `book.pdf` / `book_print.pdf` は推測で削除せず、元の保持期限に任せます。PR を閉じた時点の一覧取得後にアップロードされた Artifact は、この終了時処理では削除されず、3 日の保持期限で失効します。

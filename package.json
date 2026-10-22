@@ -13,7 +13,7 @@
     "build:docker": "docker run --rm -v \"$PWD:/work\" -v /work/node_modules -w /work node:24-bookworm-slim sh -lc 'sh scripts/setup.sh && npm ci && npx playwright install --with-deps chromium-headless-shell && npm run build:all && npm run check:pdf -- output/pdf/book.pdf output/pdf/book_print.pdf'",
     "preview": "vivliostyle preview",
     "lint": "textlint \"manuscript/**/*.md\"",
-    "test": "node --test scripts/check-pdf.test.mjs",
+    "test": "node --test scripts/check-pdf.test.mjs scripts/cleanup-pr-artifacts.test.cjs",
     "check:pdf": "node scripts/check-pdf.mjs"
   },
   "dependencies": {
