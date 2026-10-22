@@ -67,6 +67,7 @@ jobs:
           path: output/pdf/book.pdf
           archive: false
           if-no-files-found: error
+          retention-days: 3
       - uses: actions/upload-artifact@v7.0.2
         id: print_pdf
         with:
@@ -74,6 +75,7 @@ jobs:
           path: output/pdf/book_print.pdf
           archive: false
           if-no-files-found: error
+          retention-days: 3
 
   docker-build:
     runs-on: ubuntu-latest
