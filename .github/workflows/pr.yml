@@ -22,11 +22,13 @@ jobs:
   build:
     runs-on: ubuntu-slim
     timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
     outputs:
       built_at: ${{ steps.build.outputs.built_at }}
       lint_report: ${{ steps.lint.outputs.report }}
-      pdf_url: ${{ steps.pdf.outputs.artifact-url }}
-      print_pdf_url: ${{ steps.print_pdf.outputs.artifact-url }}
+      artifact_notice: ${{ steps.artifact_notice.outputs.result }}
     env:
       CI: true
     steps:
@@ -59,7 +61,7 @@ jobs:
         run: |
           npm run build:all
           npm run check:pdf -- output/pdf/book.pdf output/pdf/book_print.pdf
-          echo "built_at=$(TZ=Asia/Tokyo date +'%Y-%m-%d %H:%M JST')" >> "$GITHUB_OUTPUT"
+          echo "built_at=$(TZ=Asia/Tokyo date +'%Y-%m-%d %H:%M:%S JST')" >> "$GITHUB_OUTPUT"
       # archive:false uses the filename, not the name input. Give each PR
       # its own upload copies; leave build/release source PDFs unchanged.
       - name: Prepare PR-specific PDF filenames
@@ -76,7 +78,7 @@ jobs:
           path: ${{ runner.temp }}/pr-artifacts/pr-${{ github.event.pull_request.number }}-pdf.pdf
           archive: false
           if-no-files-found: error
-          retention-days: 3
+          retention-days: 7
       - uses: actions/upload-artifact@v7.0.2
         id: print_pdf
         with:
@@ -84,7 +86,28 @@ jobs:
           path: ${{ runner.temp }}/pr-artifacts/pr-${{ github.event.pull_request.number }}-print-pdf.pdf
           archive: false
           if-no-files-found: error
-          retention-days: 3
+          retention-days: 7
+
+      - name: Read PDF artifact expiry dates
+        id: artifact_notice
+        uses: actions/github-script@v9
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PDF_ID: ${{ steps.pdf.outputs.artifact-id }}
+          PDF_URL: ${{ steps.pdf.outputs.artifact-url }}
+          PRINT_PDF_ID: ${{ steps.print_pdf.outputs.artifact-id }}
+          PRINT_PDF_URL: ${{ steps.print_pdf.outputs.artifact-url }}
+        with:
+          result-encoding: string
+          script: |
+            const {artifactDownloadLine, runDetails, retentionNote} = require('./scripts/pr-artifact-notice.cjs');
+            const lines = [];
+            for (const [key, suffix, label] of [['PDF', 'pdf.pdf', '通常版 PDF'], ['PRINT_PDF', 'print-pdf.pdf', '印刷用 PDF']]) {
+              lines.push(await artifactDownloadLine({github, core, context,
+                artifactId: process.env[`${key}_ID`], artifactUrl: process.env[`${key}_URL`],
+                expectedName: `pr-${process.env.PR_NUMBER}-${suffix}`, label}));
+            }
+            return [...lines, '', retentionNote, runDetails({context, env: process.env})].join('\n');
 
   docker-build:
     runs-on: ubuntu-latest
@@ -120,8 +143,7 @@ jobs:
           header: pdf-build
           message: |
             ビルドしたPDF(${{ needs.build.outputs.built_at }}):
-            - [通常版 PDF](${{ needs.build.outputs.pdf_url }})
-            - [印刷用 PDF](${{ needs.build.outputs.print_pdf_url }})
+            ${{ needs.build.outputs.artifact_notice }}
       - uses: marocchino/sticky-pull-request-comment@v3
         if: ${{ always() && needs.build.result == 'failure' }}
         with:
