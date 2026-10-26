@@ -10,5 +10,5 @@ mkdir -p "$2"
 rm -f "$2"/book-*.png "$2"/book_print-*.png
 for name in book book_print; do
   test -f "$1/$name.pdf"
-  pdftoppm -r 144 -png "$1/$name.pdf" "$2/$name"
+  pdftoppm -r 300 -png "$1/$name.pdf" "$2/$name"
 done
