@@ -15,6 +15,7 @@ jobs:
     timeout-minutes: 45
     permissions:
       contents: read
+      actions: read
       pull-requests: write
     env:
       CI: true
@@ -66,14 +67,17 @@ jobs:
           name: pr-${{ github.event.pull_request.number }}-visual-regression
           path: output/visual/
           if-no-files-found: error
-          retention-days: 3
+          retention-days: 7
       - uses: actions/github-script@v9
         if: failure()
         env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          ARTIFACT_ID: ${{ steps.visual.outputs.artifact-id }}
           ARTIFACT_URL: ${{ steps.visual.outputs.artifact-url }}
         with:
           script: |
             const fs = require('node:fs');
+            const {artifactDownloadLine, runDetails, retentionNote} = require('./scripts/pr-artifact-notice.cjs');
             const {errors} = JSON.parse(fs.readFileSync('output/visual/report.json', 'utf8'));
             const lines = ['❌ PDF のビジュアル回帰テストに失敗しました。'];
             for (const {page, reason, images} of errors) {
@@ -82,8 +86,10 @@ jobs:
                 lines.push(`- ${label}: ${images[kind] ? `\`${images[kind]}\`` : '画像なし'}`);
               }
             }
-            const run = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            lines.push('', `[画像一式または実行ログ](${process.env.ARTIFACT_URL || run})`);
+            lines.push('', await artifactDownloadLine({github, core, context,
+              artifactId: process.env.ARTIFACT_ID, artifactUrl: process.env.ARTIFACT_URL,
+              expectedName: `pr-${process.env.PR_NUMBER}-visual-regression`, label: '画像一式'}),
+              '', retentionNote, runDetails({context, env: process.env}));
             fs.writeFileSync('vrt-comment.md', lines.join('\n'));
       - uses: marocchino/sticky-pull-request-comment@v3
         if: failure()
