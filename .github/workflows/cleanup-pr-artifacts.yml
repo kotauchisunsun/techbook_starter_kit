@@ -1,8 +1,10 @@
 name: Delete closed pull request artifacts
 
 on:
-  pull_request_target:
-    types: [closed]
+  schedule:
+    # Avoid the start-of-hour peak. Cleanup uses only default-branch code.
+    - cron: '17 * * * *'
+  workflow_dispatch:
 
 permissions:
   actions: write
@@ -10,6 +12,7 @@ permissions:
 
 jobs:
   cleanup:
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
     runs-on: ubuntu-slim
     timeout-minutes: 5
     steps:
@@ -17,25 +20,118 @@ jobs:
         with:
           script: |
             const {owner, repo} = context.repo;
-            const number = context.issue.number;
-            // Use only exact, PR-specific names. Never select generic book.pdf,
-            // branch names or commit SHAs: those can belong to other PRs.
-            for (const suffix of ['pdf.pdf', 'print-pdf.pdf', 'pdf', 'print-pdf', 'visual-regression']) {
-              const name = `pr-${number}-${suffix}`;
-              const artifacts = await github.paginate(github.rest.actions.listArtifactsForRepo, {
-                owner, repo, name, per_page: 100
+            const rows = new Map();
+            const removed = new Set();
+            let failure, verifiedAt, listed = false, ignored = 0, expired = 0;
+            const rowFor = number => {
+              if (!rows.has(number)) rows.set(number, {
+                number, found: 0, deleted: 0, absent: 0, protected: 0, unknown: 0,
+                failed: 0, remaining: null, state: 'unknown'
               });
+              return rows.get(number);
+            };
+            // Only canonical PR-specific names; never infer ownership of generic PDFs.
+            const numberFor = artifact => {
+              const match = /^pr-([1-9][0-9]*)-(pdf\.pdf|print-pdf\.pdf|pdf|print-pdf|visual-regression)$/.exec(artifact.name);
+              if (!match) return null;
+              const number = Number(match[1]);
+              return Number.isSafeInteger(number) && artifact.name === `pr-${number}-${match[2]}` ? number : null;
+            };
+            const listArtifacts = () => github.paginate(github.rest.actions.listArtifactsForRepo, {
+              owner, repo, per_page: 100
+            });
+            const prState = async number => {
+              let pr;
+              try {
+                ({data: pr} = await github.rest.pulls.get({owner, repo, pull_number: number}));
+              } catch (error) {
+                if (error.status !== 404) throw error;
+                return 'unknown'; // Missing PR is not evidence that deletion is safe.
+              }
+              if (pr.number !== number ||
+                  pr.base?.repo?.full_name?.toLowerCase() !== `${owner}/${repo}`.toLowerCase()) return 'unknown';
+              return ['open', 'closed'].includes(pr.state) ? pr.state : 'unknown';
+            };
+            try {
+              // Finish pagination before deleting, so removal cannot shift pages.
+              const artifacts = await listArtifacts();
+              listed = true;
+              const candidates = [];
               for (const artifact of artifacts) {
-                if (artifact.name !== name || artifact.expired) continue;
-                // Avoid cleaning an explicitly reopened PR after the close event.
-                const {data: pr} = await github.rest.pulls.get({owner, repo, pull_number: number});
-                if (pr.state !== 'closed') return;
+                const number = numberFor(artifact);
+                if (number === null) { ignored++; continue; }
+                if (artifact.expired) { expired++; continue; }
+                rowFor(number).found++;
+                candidates.push({artifact, number});
+              }
+              for (const {artifact, number} of candidates) {
+                const row = rowFor(number);
                 try {
-                  await github.rest.actions.deleteArtifact({owner, repo, artifact_id: artifact.id});
+                  // Re-read before every deletion; a PR may have been reopened.
+                  row.state = await prState(number);
+                  if (row.state === 'open') { row.protected++; continue; }
+                  if (row.state !== 'closed') { row.unknown++; continue; }
+                  try {
+                    await github.rest.actions.deleteArtifact({owner, repo, artifact_id: artifact.id});
+                    row.deleted++;
+                    core.info(`Deleted ${artifact.name} (${artifact.id})`);
+                  } catch (error) {
+                    if (error.status !== 404) throw error;
+                    row.absent++; // Not counted as a deletion performed by this run.
+                  }
+                  removed.add(artifact.id);
                 } catch (error) {
-                  if (error.status !== 404) throw error;
-                  continue; // Already removed by another cleanup or retention expiry.
+                  row.failed++;
+                  throw error;
                 }
-                core.info(`Deleted ${artifact.name} (${artifact.id})`);
+              }
+            } catch (error) {
+              failure = error; // Preserve the failure while still writing an audit summary.
+            }
+            if (listed) {
+              try {
+                // A second full snapshot verifies residuals and notices newly uploaded files.
+                const remaining = await listArtifacts();
+                verifiedAt = new Date().toISOString();
+                for (const row of rows.values()) { row.remaining = 0; row.state = 'unknown'; }
+                for (const artifact of remaining) {
+                  const number = numberFor(artifact);
+                  if (number === null || artifact.expired) continue;
+                  const row = rowFor(number);
+                  row.remaining = (row.remaining ?? 0) + 1;
+                  if (removed.has(artifact.id)) {
+                    row.failed++;
+                    failure ??= new Error('An artifact reported removed is still present in the verification snapshot.');
+                  }
+                }
+                for (const row of rows.values()) {
+                  try {
+                    row.state = await prState(row.number);
+                  } catch (error) {
+                    row.failed++;
+                    throw error;
+                  }
+                }
+              } catch (error) {
+                failure ??= error;
               }
             }
+            const status = row => row.remaining === null ? '未確認' :
+              row.state === 'open' ? (row.remaining === 0 ? '確認時点で対象なし（現在 open / reopened）' : 'open / reopened のため保持') :
+              row.state !== 'closed' ? 'PR 状態未確認' :
+              row.remaining === 0 ? '確認時点で対象なし' : '残存あり（次回対象）';
+            core.summary.addHeading('PR Artifact cleanup');
+            core.summary.addRaw('今回の一覧に現れた PR のみを表示します。対象なしは、過去の削除・期限切れ・未生成を区別しません。残数は再確認時点の値で、その後のアップロードは次回対象です。\n\n');
+            core.summary.addRaw(`対象外の名前: ${ignored} 件 / 期限切れ: ${expired} 件（初回一覧）\n\n`);
+            if (verifiedAt) core.summary.addRaw(`残数の確認時刻 (UTC): ${verifiedAt}\n\n`);
+            if (!listed) core.summary.addRaw('初回一覧を取得できず、対象 PR は未確認です。\n\n');
+            if (failure) core.summary.addRaw('処理または確認に失敗しました。成功扱いにはせず、この run は失敗します。詳細はログを確認してください。\n\n');
+            core.summary.addTable([
+              ['PR', '初回対象', '今回削除', '既に不在 (404)', 'open 保護', 'PR 未確認', 'エラー', '再確認残数', '判定'].map(data => ({data, header: true})),
+              ...[...rows.values()].sort((a, b) => a.number - b.number).map(row => [
+                `#${row.number}`, ...['found', 'deleted', 'absent', 'protected', 'unknown', 'failed'].map(key => String(row[key])),
+                row.remaining === null ? '未確認' : String(row.remaining), status(row)
+              ])
+            ]);
+            try { await core.summary.write(); } catch (error) { failure ??= error; }
+            if (failure) throw failure;
