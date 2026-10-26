@@ -18,7 +18,7 @@
   },
   "dependencies": {
     "@mitsuharu/vivliostyle-theme-noto-sans-jp": "0.2.0",
-    "@vivliostyle/cli": "11.3.3",
+    "@vivliostyle/cli": "11.4.0",
     "@vivliostyle/theme-base": "3.0.0",
     "@vivliostyle/theme-techbook": "3.0.0",
     "press-ready": "4.0.3"
