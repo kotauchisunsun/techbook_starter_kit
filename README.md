@@ -2,9 +2,11 @@
 
 Vivliostyle による技術書の最小構成です。既定の判型は A5 です。
 
-原稿では画像、表、数式、言語指定のコードブロック、Mermaid 図を使えます。`manuscript/02_examples.md` にそれぞれの記述例があります。自分の本を作るときは、不要なサンプル章を `vivliostyle.config.js` の `entry` から外してください。
+原稿では画像、表、数式、言語指定のコードブロック、Mermaid 図を使えます。[`manuscript/02_examples.md`](manuscript/02_examples.md) にそれぞれの記述例があります。自分の本を作るときは、不要なサンプル章を `vivliostyle.config.js` の `entry` から外してください。
 
-この README は使える機能とセットアップ方法を案内します。原稿を編集するときの手順と短い記法例は `AGENTS.md`、PDF に組版される完成例は `manuscript/02_examples.md` を参照してください。
+この README は使える機能とセットアップ方法を案内します。原稿を編集するときの手順と短い記法例は [`AGENTS.md`](AGENTS.md)、PDF に組版される完成例は [`manuscript/02_examples.md`](manuscript/02_examples.md) を参照してください。
+
+## はじめに
 
 Node.js 22.12 以上と npm を使用します。`vivliostyle.config.js` のタイトル、著者、判型（`size`）、章順を変更し、`manuscript/01.md` を原稿に置き換えてください。章を増やしたら `entry` にファイルを追加します。`npm run check:pdf` は `size` に設定した判型で検証します。
 
@@ -21,24 +23,18 @@ npm run check:pdf
 
 Docker を使う場合は、WSL または Linux で `npm run build:docker` を実行します。通常版と印刷版の PDF を `output/pdf/` に生成します。
 
+## 原稿・画像・表紙を編集する
+
 画像などの素材は `assets/` に入れることを推奨します。`manuscript/` の原稿からは `![図の説明](../assets/example.png)` のように参照します。
 
-Mermaid 図は原稿内の `mermaid` コードブロックに直接書きます。ビルド時に PDF 用の画像として描画します。記述例は `manuscript/02_examples.md` を参照してください。
+Mermaid 図は原稿内の `mermaid` コードブロックに直接書きます。ビルド時に PDF 用の画像として描画します。記述例は [`manuscript/02_examples.md`](manuscript/02_examples.md) を参照してください。
 
 表紙と裏表紙は `assets/front-cover.svg` と `assets/back-cover.svg` にあります。本に合わせて文字と色を編集してください。通常版 PDF には両方を含め、印刷用 PDF からは除外します。
 
+## 印刷用 PDF を作る
+
 印刷用のグレースケール PDF は `npm run build:print` で作成します。Windows でも実行できますが、Ghostscript（`gswin64c` または `gswin32c`）と Xpdf または Poppler の `pdffonts`、`pdfinfo` を PATH に追加してください。Ubuntu や WSL では `ghostscript` と `poppler-utils` をインストールします。出力先は `output/pdf/book_print.pdf` です。
 
+## GitHub で PDF を確認する
+
 GitHub Actions は push 用の `build.yml` と pull request 用の `pr.yml` に分かれています。pull request では PDF ビルドとは別に textlint を実行し、校正の指摘があってもビルドを続けます。Docker 版のビルドも実行します。同じリポジトリ内のブランチから作った pull request には、textlint の結果と通常版・印刷版 PDF のリンクを固定コメントで案内します。`main` への push でビルドが成功すると、日時付きの通常版と印刷版を GitHub Release に公開します。
-
-Dependabot の pull request では、更新前後の PDF を同じレンダリングスクリプトで 300 dpi の PNG に変換して表示を比較します。比較条件は ImageMagick の `-fuzz 4%`、許容差分は各ページ 100 ピクセルのままです。300 dpi にしても差分がなくなるとは限りません。差分が許容値を超えると CI が失敗し、該当ページと画像一式へのリンクを固定コメントで案内します。
-
-PR でアップロードする通常版・印刷版 PDF と、Dependabot の表示比較で失敗した際の画像一式は、アップロードから最大 7 日間保持します。閉じた PR の Artifact は、以下の定期処理で保持期限より前に削除します。期限切れまたは削除後は、コメント内の Artifact リンクからファイルを取得できなくなります。各ダウンロード案内に、GitHub API の `expires_at` を日本時間（JST）に変換した `保持期限:YYYY/mm/dd` を表示します。期限を取得できない場合は推測せず不明と表示し、コメント生成時点で期限切れ・削除済みと分かる Artifact にはダウンロードリンクを表示しません。コメントには対象の実行・再実行番号も記載します。7 日間のダウンロード可能性を保証するものではありません。この保持期間は新しくアップロードする Artifact に適用され、既存の Artifact や PDF ビルドの手動実行の保持期間は変更しません。
-
-PR の PDF は、アップロード時のみ `pr-<PR番号>-pdf.pdf` と `pr-<PR番号>-print-pdf.pdf` にコピーします。ZIP 化せず直接 PDF をダウンロードできる動作と、ビルド元の `book.pdf` / `book_print.pdf` は維持します。削除処理は PR 番号付きの完全一致名だけを対象に、各削除の直前に API でそのリポジトリの PR が閉じていることを確認します。従来の PR 番号付き ZIP・比較画像も対象です。開いている PR、再オープンを確認した PR、他 PR と区別できない既存の `book.pdf` / `book_print.pdf` は削除しません。
-
-`cleanup-pr-artifacts.yml` は、`pull_request_target` の代わりに既定ブランチで毎時 17 分（UTC）に実行します。PR を閉じた直後ではなく、通常は次の約 1 時間以内の実行で削除しますが、GitHub 側の混雑による遅延・実行の取りこぼしがあるため、削除時刻は保証されません。公開リポジトリでは 60 日間活動がないと定期実行が自動停止することもあります。必要な場合は Actions の「Delete closed pull request artifacts」から既定ブランチを選び、同じ安全条件で手動実行できます。一覧取得後にアップロードされた Artifact は次回以降の処理対象となり、定期処理が動かない場合も元の保持期限は有効です。fork・Dependabot の PR も同じ API 確認で扱い、PR のコードや Artifact の内容は実行しません。Actions の実行ポリシーやトークンの権限は広げません。
-
-各実行の Summary に、今回の一覧に現れた PR ごとの初回対象数、今回削除した数、既に不在だった数（404）、open のため保持した数、未確認・エラー数、処理後に再取得した一覧での残数と判定を表示します。「確認時点で対象なし」と「残存あり（次回対象）」を区別でき、残数の確認時刻も記録します。削除後にアップロードされた対象は追いかけて削除せず、次回に回します。API エラーで確認できない場合は「未確認」とし、処理中にエラーがあった run は失敗のままにします。
-
-これは全 PR の削除履歴台帳ではありません。一覧に現れない PR や対象数ゼロだけでは、削除済み・未生成・期限切れを区別できません。「今回削除」の件数だけが、その run で削除 API が成功した実績です。再オープンの確認と削除は別の API 操作なので、その間の状態変更まで原子的に防ぐものではありません。
