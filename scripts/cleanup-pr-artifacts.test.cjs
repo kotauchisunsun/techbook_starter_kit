@@ -279,7 +279,7 @@ test('upload copies carry the actual PR-specific names and preserve PDF bytes an
         assert.deepEqual(readFileSync(join(root, `tmp/pr-artifacts/pr-${number}-${suffix}`)), readFileSync(join(root, `output/pdf/${source}`)));
       }
     }
-    assert.equal((text.match(/retention-days: 3/g) || []).length, 2);
+    assert.equal((text.match(/retention-days: 7/g) || []).length, 2);
     assert.equal((text.match(/archive: false/g) || []).length, 2);
     assert.match(text, /path: \$\{\{ runner.temp \}\}\/pr-artifacts\/pr-\$\{\{ github.event.pull_request.number \}\}-pdf.pdf/);
     assert.match(text, /path: \$\{\{ runner.temp \}\}\/pr-artifacts\/pr-\$\{\{ github.event.pull_request.number \}\}-print-pdf.pdf/);
