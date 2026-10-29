@@ -1,0 +1,56 @@
+name: Report PDF rendering
+
+on:
+  workflow_run:
+    workflows: ['Check PDF rendering']
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: write
+
+concurrency:
+  group: vrt-report-${{ github.event.workflow_run.head_repository.full_name }}-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+jobs:
+  report:
+    if: github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    steps:
+      # Never check out the triggering PR's head in this write-enabled workflow.
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          sparse-checkout: scripts
+          persist-credentials: false
+      - uses: actions/github-script@v9
+        id: prepare
+        with:
+          script: |
+            const {prepare} = require('./scripts/vrt-report.cjs');
+            const plan = await prepare({github, context});
+            core.setOutput('plan', plan ? JSON.stringify(plan) : '');
+            core.setOutput('report_id', plan?.reportId || '');
+      - uses: actions/download-artifact@v8
+        if: steps.prepare.outputs.report_id != ''
+        continue-on-error: true
+        with:
+          artifact-ids: ${{ steps.prepare.outputs.report_id }}
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/vrt-report
+          merge-multiple: true
+          skip-decompress: true
+      - uses: actions/github-script@v9
+        if: steps.prepare.outputs.plan != ''
+        env:
+          VRT_PLAN: ${{ steps.prepare.outputs.plan }}
+          REPORT_DIRECTORY: ${{ runner.temp }}/vrt-report
+        with:
+          script: |
+            const {publish} = require('./scripts/vrt-report.cjs');
+            await publish({github, context, core,
+              plan: JSON.parse(process.env.VRT_PLAN), directory: process.env.REPORT_DIRECTORY});

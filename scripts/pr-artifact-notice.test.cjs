@@ -111,48 +111,18 @@ test('PDF workflow passes individual upload IDs and URLs and emits distinct per-
   assert.match(result, /期限前に削除されることがあります/);
 });
 
-test('VRT failure comment includes API expiry, comparison details and exact attempt log link', async () => {
-  const script = workflowScript('.github/workflows/dependabot-visual-regression.yml');
-  const execute = new AsyncFunction('require', 'github', 'core', 'context', 'process', script);
-  const f = fixture({name: 'pr-26-visual-regression', expires_at: '2099-01-02T15:00:00Z'});
-  let result;
-  const fs = {readFileSync: () => JSON.stringify({errors: [{page: 'book-1', reason: '差分あり', images: {diff: 'diff/1.png'}}]}),
-    writeFileSync: (path, data) => {assert.equal(path, 'vrt-comment.md'); result = data;}};
-  await execute(name => name === 'node:fs' ? fs : notices, f.args.github, f.args.core, context,
-    {env: {...env, PR_NUMBER: '26', ARTIFACT_ID: '456', ARTIFACT_URL: url}});
-  assert.match(result, /### book-1\n差分あり/);
-  assert.match(result, /差分: `diff\/1.png`/);
-  assert.match(result, /画像一式.*保持期限:2099\/01\/03/);
-  assert.match(result, /actions\/runs\/123\/attempts\/2/);
-});
-
 test('all PR uploads retain seven days, preserving direct PDF downloads and non-PR retention', () => {
   const pdf = readFileSync('.github/workflows/pr.yml', 'utf8');
-  const vrt = readFileSync('.github/workflows/dependabot-visual-regression.yml', 'utf8');
+  const vrt = readFileSync('.github/workflows/visual-regression.yml', 'utf8');
   assert.equal((pdf.match(/retention-days: 7/g) || []).length, 2);
-  assert.equal((vrt.match(/retention-days: 7/g) || []).length, 1);
+  assert.equal((vrt.match(/retention-days: 7/g) || []).length, 2);
   assert.doesNotMatch(pdf + vrt, /retention-days: 3/);
   assert.equal((pdf.match(/archive: false/g) || []).length, 2);
   assert.match(pdf, /PDF_ID: \$\{\{ steps.pdf.outputs.artifact-id \}\}/);
   assert.match(pdf, /PRINT_PDF_ID: \$\{\{ steps.print_pdf.outputs.artifact-id \}\}/);
-  assert.match(vrt, /ARTIFACT_ID: \$\{\{ steps.visual.outputs.artifact-id \}\}/);
   assert.match(pdf, /built_at: \$\{\{ steps.build.outputs.built_at \}\}/);
   assert.match(pdf, /needs.build.outputs.artifact_notice/);
   assert.doesNotMatch(readFileSync('.github/workflows/build.yml', 'utf8'), /retention-days:/);
 });
 
 
-test('VRT upload failure preserves comparison diagnostics and a fallback to this attempt logs', async () => {
-  const execute = new AsyncFunction('require', 'github', 'core', 'context', 'process', workflowScript('.github/workflows/dependabot-visual-regression.yml'));
-  const f = fixture();
-  let result;
-  const fs = {readFileSync: () => JSON.stringify({errors: [{reason: 'PDF ビルド失敗'}]}),
-    writeFileSync: (path, data) => {result = data;}};
-  await execute(name => name === 'node:fs' ? fs : notices, f.args.github, f.args.core, context,
-    {env: {...env, PR_NUMBER: '26', ARTIFACT_ID: '', ARTIFACT_URL: ''}});
-  assert.match(result, /PDF ビルド失敗/);
-  assert.match(result, /保持期限:不明（Artifact をアップロードできませんでした）/);
-  assert.match(result, /actions\/runs\/123\/attempts\/2/);
-  assert.doesNotMatch(result, /artifacts\//);
-  assert.deepEqual(f.requested, []);
-});
