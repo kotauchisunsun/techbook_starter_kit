@@ -139,8 +139,11 @@ test('missing, malformed, oversized or symlinked reports preserve log fallback',
 });
 
 test('report text cannot inject Markdown, HTML, mentions or arbitrary image paths', () => {
-  const safe = reportLines(JSON.stringify({errors: [{page: '<script>@all', reason: '[click](https://evil) @owner `x`'}]}));
-  assert.doesNotMatch(safe, /<script>|@owner|@all|\[click\]\(/);
+  for (const page of ['<script>@all', '<SCRIPT>@all', '<img src=x>@all']) {
+    const safe = reportLines(JSON.stringify({errors: [{page, reason: '[click](https://evil) @owner `x`'}]}));
+    assert.equal(safe.includes('<'), false);
+    assert.doesNotMatch(safe, /@owner|@all|\[click\]\(/);
+  }
   for (const path of ['../secret', 'https://evil', 'diff/book-1.png`\n@owner', 'before/book-1.png']) {
     assert.throws(() => reportLines(JSON.stringify({errors: [{reason: 'x', images: {diff: path}}]})), /Invalid image path/);
   }
