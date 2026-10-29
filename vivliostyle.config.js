@@ -1,4 +1,6 @@
-module.exports = {
+import documentProcessor from './scripts/mermaid.js';
+
+export default {
   title: '本のタイトル',
   author: '著者名',
   language: 'ja',
@@ -20,6 +22,6 @@ module.exports = {
   cover: 'assets/front-cover.svg',
   output: [{ path: 'output/pdf/book.pdf', format: 'pdf', renderMode: 'local' }],
   copyAsset: { excludes: ['output/**'] },
-  documentProcessor: require('./scripts/mermaid.js'),
+  documentProcessor,
   toc: { title: '目次', sectionDepth: 2 },
 };

@@ -1,9 +1,9 @@
-const {test} = require('node:test');
-const assert = require('node:assert/strict');
-const {mkdtempSync, writeFileSync, rmSync, symlinkSync, readFileSync} = require('node:fs');
-const {tmpdir} = require('node:os');
-const {join} = require('node:path');
-const {validate, prepare, publish, reportLines} = require('./vrt-report.cjs');
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtempSync, writeFileSync, rmSync, symlinkSync, readFileSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {validate, prepare, publish, reportLines} from './vrt-report.js';
 const head = 'a'.repeat(40);
 
 function fixture(options = {}) {

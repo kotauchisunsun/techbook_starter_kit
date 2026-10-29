@@ -1,4 +1,4 @@
-const { VFM } = require('@vivliostyle/vfm');
+import { VFM } from '@vivliostyle/vfm';
 
 let render;
 
@@ -29,7 +29,7 @@ function mermaidPlugin() {
   };
 }
 
-module.exports = (options, metadata) => VFM({
+export default (options, metadata) => VFM({
   ...options,
   editPlugins: (plugins) => ({
     ...plugins,

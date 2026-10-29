@@ -1,4 +1,5 @@
 {
+  "type": "module",
   "name": "techbook-starter-kit",
   "version": "0.0.0",
   "private": true,
@@ -13,8 +14,8 @@
     "build:docker": "docker run --rm -v \"$PWD:/work\" -v /work/node_modules -w /work node:24-bookworm-slim sh -lc 'sh scripts/setup.sh && npm ci && npx playwright install --with-deps chromium-headless-shell && npm run build:all && npm run check:pdf -- output/pdf/book.pdf output/pdf/book_print.pdf'",
     "preview": "vivliostyle preview",
     "lint": "textlint \"manuscript/**/*.md\"",
-    "test": "node --test scripts/check-pdf.test.mjs scripts/cleanup-pr-artifacts.test.cjs scripts/pr-artifact-notice.test.cjs scripts/render-pdf-pages.test.mjs scripts/vrt-workflow.test.cjs scripts/vrt-report.test.cjs",
-    "check:pdf": "node scripts/check-pdf.mjs"
+    "test": "node --test scripts/check-pdf.test.js scripts/cleanup-pr-artifacts.test.js scripts/pr-artifact-notice.test.js scripts/render-pdf-pages.test.js scripts/vrt-workflow.test.js scripts/vrt-report.test.js scripts/module-format.test.js",
+    "check:pdf": "node scripts/check-pdf.js"
   },
   "dependencies": {
     "@mitsuharu/vivliostyle-theme-noto-sans-jp": "0.2.0",

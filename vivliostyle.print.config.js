@@ -1,6 +1,6 @@
-const config = require('./vivliostyle.config.js');
+import config from './vivliostyle.config.js';
 
-module.exports = {
+export default {
   ...config,
   cover: undefined,
   entry: config.entry.filter((entry) => entry.rel !== 'cover'),

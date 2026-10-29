@@ -7,12 +7,13 @@ import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import { PDFDocument, PageSizes } from 'pdf-lib';
 
-const checker = fileURLToPath(new URL('./check-pdf.mjs', import.meta.url));
+const checker = fileURLToPath(new URL('./check-pdf.js', import.meta.url));
 
 test('PDF size follows Vivliostyle config', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'check-pdf-'));
   const pdfPath = join(dir, 'book.pdf');
   try {
+    await writeFile(join(dir, 'package.json'), JSON.stringify({type: 'module'}));
     for (const [size, dimensions] of [
       ['A4', PageSizes.A4],
       ['JIS-B5', [182 * 72 / 25.4, 257 * 72 / 25.4]],
@@ -21,7 +22,7 @@ test('PDF size follows Vivliostyle config', async () => {
       ['180mm,250mm', [180 * 72 / 25.4, 250 * 72 / 25.4]],
     ]) {
       await writeFile(join(dir, 'vivliostyle.config.js'),
-        size ? `module.exports = { size: '${size}' };` : 'module.exports = {};');
+        size ? `export default { size: '${size}' };` : 'export default {};');
       const pdf = await PDFDocument.create();
       pdf.addPage(dimensions);
       await writeFile(pdfPath, await pdf.save());
@@ -29,7 +30,7 @@ test('PDF size follows Vivliostyle config', async () => {
       assert.equal(result.status, 0, result.stderr);
     }
 
-    await writeFile(join(dir, 'vivliostyle.config.js'), "module.exports = { size: 'A5' };");
+    await writeFile(join(dir, 'vivliostyle.config.js'), "export default { size: 'A5' };");
     const result = spawnSync(process.execPath, [checker, pdfPath], { cwd: dir, encoding: 'utf8' });
     assert.notEqual(result.status, 0);
     assert.match(result.stderr, /設定された判型 A5 と異なります/);

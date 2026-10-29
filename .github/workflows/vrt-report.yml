@@ -30,7 +30,7 @@ jobs:
         id: prepare
         with:
           script: |
-            const {prepare} = require('./scripts/vrt-report.cjs');
+            const {prepare} = await import(`${process.env.GITHUB_WORKSPACE}/scripts/vrt-report.js`);
             const plan = await prepare({github, context});
             core.setOutput('plan', plan ? JSON.stringify(plan) : '');
             core.setOutput('report_id', plan?.reportId || '');
@@ -51,6 +51,6 @@ jobs:
           REPORT_DIRECTORY: ${{ runner.temp }}/vrt-report
         with:
           script: |
-            const {publish} = require('./scripts/vrt-report.cjs');
+            const {publish} = await import(`${process.env.GITHUB_WORKSPACE}/scripts/vrt-report.js`);
             await publish({github, context, core,
               plan: JSON.parse(process.env.VRT_PLAN), directory: process.env.REPORT_DIRECTORY});

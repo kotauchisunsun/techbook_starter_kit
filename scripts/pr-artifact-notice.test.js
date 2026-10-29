@@ -1,7 +1,7 @@
-const {test} = require('node:test');
-const assert = require('node:assert/strict');
-const {readFileSync} = require('node:fs');
-const notices = require('./pr-artifact-notice.cjs');
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import * as notices from './pr-artifact-notice.js';
 const {formatExpiryDate, artifactDownloadLine, runDetails} = notices;
 const context = {repo: {owner: 'owner', repo: 'repo'}, runId: 123, runNumber: 42};
 const env = {GITHUB_SERVER_URL: 'https://github.com', GITHUB_RUN_ATTEMPT: '2'};
@@ -94,7 +94,7 @@ function workflowScript(path) {
 
 test('PDF workflow passes individual upload IDs and URLs and emits distinct per-artifact expiry dates', async () => {
   const script = workflowScript('.github/workflows/pr.yml');
-  const execute = new AsyncFunction('require', 'github', 'core', 'context', 'process', script);
+  const execute = new AsyncFunction('github', 'core', 'context', 'process', script);
   const seen = [];
   const github = {rest: {actions: {getArtifact: async ({artifact_id}) => {
     seen.push(artifact_id);
@@ -102,7 +102,7 @@ test('PDF workflow passes individual upload IDs and URLs and emits distinct per-
       name: artifact_id === 456 ? 'pr-26-pdf.pdf' : 'pr-26-print-pdf.pdf',
       expires_at: artifact_id === 456 ? '2099-01-02T14:59:59Z' : '2099-01-02T15:00:00Z'}};
   }}}};
-  const result = await execute(() => notices, github, {warning() {}}, context, {env: {...env, PR_NUMBER: '26',
+  const result = await execute(github, {warning() {}}, context, {env: {...env, GITHUB_WORKSPACE: process.cwd(), PR_NUMBER: '26',
     PDF_ID: '456', PDF_URL: url, PRINT_PDF_ID: '789', PRINT_PDF_URL: url.replace('456', '789')}});
   assert.deepEqual(seen, [456, 789]);
   assert.match(result, /通常版 PDF.*artifacts\/456.*保持期限:2099\/01\/02/);

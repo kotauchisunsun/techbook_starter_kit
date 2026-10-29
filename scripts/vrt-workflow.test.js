@@ -1,7 +1,7 @@
-const {test} = require('node:test');
-const assert = require('node:assert/strict');
-const {readFileSync, existsSync} = require('node:fs');
-const yaml = require('js-yaml');
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync, existsSync} from 'node:fs';
+import yaml from 'js-yaml';
 const workflow = yaml.load(readFileSync('.github/workflows/visual-regression.yml', 'utf8'));
 const job = workflow.jobs['visual-regression'];
 const condition = job.if.replace('github.event.pull_request.labels.*.name', 'github.event.pull_request.labels.map(label => label.name)');
@@ -47,7 +47,7 @@ test('Dependabot config supplies vrt directly, rather than a token-driven labeli
 test('baseline/current PDF comparison, 300dpi and seven-day diagnostic artifacts remain', () => {
   const build = job.steps.find(s => s.name === 'Build, render, and compare PDFs in Docker').run;
   for (const command of ['npm ci', 'npm run build', 'npm run build:print', 'npm run check:pdf',
-    'scripts/render-pdf-pages.sh', 'scripts/compare-pdf-pages.mjs']) assert.ok(build.includes(command));
+    'scripts/render-pdf-pages.sh', 'scripts/compare-pdf-pages.js']) assert.ok(build.includes(command));
   assert.match(readFileSync('scripts/render-pdf-pages.sh', 'utf8'), /-r 300/);
   const uploads = job.steps.filter(s => s.uses?.startsWith('actions/upload-artifact@'));
   assert.equal(uploads.length, 2);
