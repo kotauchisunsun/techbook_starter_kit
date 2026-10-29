@@ -1,7 +1,7 @@
 // This module is loaded only from the reporter workflow's trusted default-branch SHA.
-const {readFileSync, lstatSync} = require('node:fs');
-const {join} = require('node:path');
-const {artifactDownloadLine, retentionNote} = require('./pr-artifact-notice.cjs');
+import {readFileSync, lstatSync} from 'node:fs';
+import {join} from 'node:path';
+import {artifactDownloadLine, retentionNote} from './pr-artifact-notice.js';
 const marker = '<!-- pdf-visual-regression -->';
 const workflowPath = '.github/workflows/visual-regression.yml';
 const positive = n => Number.isSafeInteger(n) && n > 0;
@@ -126,4 +126,4 @@ async function publish({github, context, core, plan, directory}) {
   else await github.rest.issues.createComment({...context.repo, issue_number: plan.prNumber, body: lines.join('\n')});
   return true;
 }
-module.exports = {validate, prepare, publish, reportLines};
+export {validate, prepare, publish, reportLines};

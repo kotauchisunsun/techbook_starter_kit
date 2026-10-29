@@ -54,4 +54,4 @@ function runDetails({context, env = process.env}) {
 
 const retentionNote = '保持期間は最大7日間です。PR が閉じられた場合など、期限前に削除されることがあります。';
 
-module.exports = {formatExpiryDate, artifactDownloadLine, runDetails, retentionNote};
+export {formatExpiryDate, artifactDownloadLine, runDetails, retentionNote};

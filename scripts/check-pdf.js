@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
-import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { PDFDocument, PageSizes } from 'pdf-lib';
 
-const require = createRequire(import.meta.url);
-const { size = 'letter' } = require(resolve('vivliostyle.config.js'));
+const { default: config } = await import(pathToFileURL(resolve('vivliostyle.config.js')).href);
+const { size = 'letter' } = config;
 const mmToPoints = (mm) => mm * 72 / 25.4;
 const presets = {
   A5: PageSizes.A5,

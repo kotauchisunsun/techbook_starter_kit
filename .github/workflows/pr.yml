@@ -100,7 +100,7 @@ jobs:
         with:
           result-encoding: string
           script: |
-            const {artifactDownloadLine, runDetails, retentionNote} = require('./scripts/pr-artifact-notice.cjs');
+            const {artifactDownloadLine, runDetails, retentionNote} = await import(`${process.env.GITHUB_WORKSPACE}/scripts/pr-artifact-notice.js`);
             const lines = [];
             for (const [key, suffix, label] of [['PDF', 'pdf.pdf', '通常版 PDF'], ['PRINT_PDF', 'print-pdf.pdf', '印刷用 PDF']]) {
               lines.push(await artifactDownloadLine({github, core, context,

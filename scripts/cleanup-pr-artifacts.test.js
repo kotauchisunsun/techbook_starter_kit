@@ -1,9 +1,9 @@
-const {test} = require('node:test');
-const assert = require('node:assert/strict');
-const {readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync} = require('node:fs');
-const {tmpdir} = require('node:os');
-const {join} = require('node:path');
-const {execFileSync} = require('node:child_process');
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {execFileSync} from 'node:child_process';
 const workflow = readFileSync('.github/workflows/cleanup-pr-artifacts.yml', 'utf8');
 const script = workflow.split('          script: |\n')[1].split('\n').map(line => line.replace(/^            /, '')).join('\n');
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;

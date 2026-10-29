@@ -55,7 +55,7 @@ jobs:
               cd /work/current
               sh scripts/render-pdf-pages.sh /work/baseline/output/pdf output/visual/before
               sh scripts/render-pdf-pages.sh output/pdf output/visual/after
-              node scripts/compare-pdf-pages.mjs output/visual/before output/visual/after output/visual/diff output/visual/report.json
+              node scripts/compare-pdf-pages.js output/visual/before output/visual/after output/visual/diff output/visual/report.json
             '
       - name: Record build failure
         if: failure()

@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path';
 
 const [before, after, diff, report] = process.argv.slice(2);
 if (!before || !after || !diff || !report) {
-  console.error('Usage: node scripts/compare-pdf-pages.mjs BEFORE_IMAGES AFTER_IMAGES DIFF_IMAGES REPORT_JSON');
+  console.error('Usage: node scripts/compare-pdf-pages.js BEFORE_IMAGES AFTER_IMAGES DIFF_IMAGES REPORT_JSON');
   process.exit(2);
 }
 if ([before, after].some((dir) => resolve(dir) === resolve(diff))) {
