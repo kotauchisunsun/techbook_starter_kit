@@ -32,7 +32,7 @@ jobs:
             };
             // Only canonical PR-specific names; never infer ownership of generic PDFs.
             const numberFor = artifact => {
-              const match = /^pr-([1-9][0-9]*)-(pdf\.pdf|print-pdf\.pdf|pdf|print-pdf|visual-regression)$/.exec(artifact.name);
+              const match = /^pr-([1-9][0-9]*)-(pdf\.pdf|print-pdf\.pdf|pdf|print-pdf|visual-regression|vrt-report\.json)$/.exec(artifact.name);
               if (!match) return null;
               const number = Number(match[1]);
               return Number.isSafeInteger(number) && artifact.name === `pr-${number}-${match[2]}` ? number : null;

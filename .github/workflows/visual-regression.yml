@@ -1,22 +1,26 @@
-name: Check Dependabot PDF rendering
+name: Check PDF rendering
 
 on:
   pull_request:
-    branches:
-      - main
+    types: [opened, reopened, synchronize, labeled]
 
 permissions:
   contents: read
 
 jobs:
   visual-regression:
-    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    if: >-
+      contains(github.event.pull_request.labels.*.name, 'vrt') &&
+      (github.event.action != 'labeled' || github.event.label.name == 'vrt')
+    # Keep concurrency inside the eligible job: unrelated labels must not cancel VRT.
+    concurrency:
+      group: pdf-vrt-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
       contents: read
       actions: read
-      pull-requests: write
     env:
       CI: true
     steps:
@@ -25,7 +29,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
           persist-credentials: false
-      - name: Check out the commit before Dependabot's changes
+      - name: Check out the comparison baseline
         run: |
           baseline=$(git merge-base HEAD "${{ github.event.pull_request.base.sha }}")
           git worktree add --detach "$RUNNER_TEMP/baseline" "$baseline"
@@ -68,36 +72,25 @@ jobs:
           path: output/visual/
           if-no-files-found: error
           retention-days: 7
-      - uses: actions/github-script@v9
-        if: failure()
+          overwrite: true
+      # A separate trusted workflow reports results, including fork/Dependabot PRs.
+      - name: Prepare comparison report
+        if: always()
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          ARTIFACT_ID: ${{ steps.visual.outputs.artifact-id }}
-          ARTIFACT_URL: ${{ steps.visual.outputs.artifact-url }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/vrt-report"
+          if [ ! -f output/visual/report.json ]; then
+            mkdir -p output/visual
+            printf '%s\n' '{"errors":[{"reason":"VRT report unavailable; inspect the workflow logs."}]}' > output/visual/report.json
+          fi
+          cp output/visual/report.json "$RUNNER_TEMP/vrt-report/pr-${PR_NUMBER}-vrt-report.json"
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
         with:
-          script: |
-            const fs = require('node:fs');
-            const {artifactDownloadLine, runDetails, retentionNote} = require('./scripts/pr-artifact-notice.cjs');
-            const {errors} = JSON.parse(fs.readFileSync('output/visual/report.json', 'utf8'));
-            const lines = ['❌ PDF のビジュアル回帰テストに失敗しました。'];
-            for (const {page, reason, images} of errors) {
-              lines.push('', page ? `### ${page}` : '### ビルドエラー', reason);
-              if (images) for (const [kind, label] of [['before', '更新前'], ['after', '更新後'], ['diff', '差分']]) {
-                lines.push(`- ${label}: ${images[kind] ? `\`${images[kind]}\`` : '画像なし'}`);
-              }
-            }
-            lines.push('', await artifactDownloadLine({github, core, context,
-              artifactId: process.env.ARTIFACT_ID, artifactUrl: process.env.ARTIFACT_URL,
-              expectedName: `pr-${process.env.PR_NUMBER}-visual-regression`, label: '画像一式'}),
-              '', retentionNote, runDetails({context, env: process.env}));
-            fs.writeFileSync('vrt-comment.md', lines.join('\n'));
-      - uses: marocchino/sticky-pull-request-comment@v3
-        if: failure()
-        with:
-          header: pdf-visual-regression
-          path: vrt-comment.md
-      - uses: marocchino/sticky-pull-request-comment@v3
-        if: success()
-        with:
-          header: pdf-visual-regression
-          message: PDF の表示に差分はありませんでした。
+          name: pr-${{ github.event.pull_request.number }}-vrt-report.json
+          path: ${{ runner.temp }}/vrt-report/pr-${{ github.event.pull_request.number }}-vrt-report.json
+          archive: false
+          if-no-files-found: error
+          retention-days: 7
+          overwrite: true

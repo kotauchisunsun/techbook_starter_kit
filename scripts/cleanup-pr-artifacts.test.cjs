@@ -72,12 +72,12 @@ test('cleanup uses scheduled/default-branch API-only execution with unchanged pe
 });
 
 test('deletes exact supported names for multiple closed PRs, including legacy ZIPs and comparison images', async () => {
-  const suffixes = ['pdf.pdf', 'print-pdf.pdf', 'pdf', 'print-pdf', 'visual-regression'];
+  const suffixes = ['pdf.pdf', 'print-pdf.pdf', 'pdf', 'print-pdf', 'visual-regression', 'vrt-report.json'];
   const names = [26, 27].flatMap(number => suffixes.map(suffix => `pr-${number}-${suffix}`));
   const f = fixture({artifacts: names.map((name, id) => ({name, id: id + 1}))});
   await f.run();
-  assert.deepEqual(f.deleted, Array.from({length: 10}, (_, i) => i + 1));
-  assert.deepEqual(f.checked, [26, 26, 26, 26, 26, 27, 27, 27, 27, 27, 26, 27]);
+  assert.deepEqual(f.deleted, Array.from({length: 12}, (_, i) => i + 1));
+  assert.deepEqual(f.checked, [26, 26, 26, 26, 26, 26, 27, 27, 27, 27, 27, 27, 26, 27]);
 });
 
 test('does not select generic, malformed, prefix/suffix collision or unsafe-number names', async () => {
