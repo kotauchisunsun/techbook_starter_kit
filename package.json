@@ -42,6 +42,13 @@
     "valibot": "1.5.0",
     "press-ready": {
       "uuid": "11.1.1"
+    },
+    "@vivliostyle/cli": {
+      "vite": "8.1.6",
+      "puppeteer-core": "25.13.0"
+    },
+    "chromium-bidi": {
+      "zod": "4.6.6"
     }
   }
 }
