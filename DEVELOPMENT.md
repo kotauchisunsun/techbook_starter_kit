@@ -21,6 +21,6 @@ EPUB の画像は `epub/{before,after,diff}/{chromium,webkit,mupdf}/{幅}x{高�
 workflow 名とコメント識別子は互換性のため旧 PDF 名を維持します。新しい EPUB のコメント表示対応は reporter の main へのマージ後に有効です。
 
 `Test EPUB visual comparison` CI は原稿とは独立した小さな EPUB を実際に各リーダーで二度描画し、
-同一内容が成功すること、背景色を意図的に変更した EPUB が画像差分で失敗することを確認します。
+同一内容が成功すること、24px の検証用テキストの文字色を黒から赤へ意図的に変更した EPUB が画像差分で失敗することを確認します。
 ローカルで実行する場合は ImageMagick、PyMuPDF 1.26.6、Playwright の Chromium / WebKit を用意し、
 `node scripts/epub-vrt.integration.js` を実行してください。
