@@ -5,7 +5,7 @@ import { checkEpub } from './check-epub.js';
 
 function fixture(result = { status: 0 }, env = {}) {
   const calls = [];
-  return { calls, options: { env, run: (...args) => { calls.push(args); return result; } } };
+  return { calls, options: { env, exists: () => false, run: (...args) => { calls.push(args); return result; } } };
 }
 
 test('validates the default output with official EPUBCheck', () => {
@@ -44,4 +44,19 @@ test('execution failures and signals never report validation success', () => {
   const error = new Error('Access denied');
   assert.throws(() => checkEpub([], fixture({ error }).options), error);
   assert.throws(() => checkEpub([], fixture({ status: null, signal: 'SIGTERM' }).options), /SIGTERM/);
+});
+
+
+test('Debian/Ubuntu JAR is launched through Java without requiring binfmt_misc', () => {
+  const f = fixture();
+  f.options.exists = path => path === '/usr/share/java/epubcheck.jar';
+  assert.equal(checkEpub(['book.epub'], f.options), 0);
+  assert.deepEqual(f.calls[0].slice(0, 2), ['java', ['-jar', '/usr/share/java/epubcheck.jar', resolve('book.epub')]]);
+});
+
+test('explicit EPUBCHECK_JAR takes precedence over the distribution JAR', () => {
+  const f = fixture({ status: 0 }, { EPUBCHECK_JAR: 'custom/epubcheck.jar' });
+  f.options.exists = () => { throw new Error('System lookup should not run for an explicit JAR'); };
+  assert.equal(checkEpub(['book.epub'], f.options), 0);
+  assert.deepEqual(f.calls[0].slice(0, 2), ['java', ['-jar', resolve('custom/epubcheck.jar'), resolve('book.epub')]]);
 });
