@@ -28,7 +28,7 @@ test('unrelated labels cannot cancel active VRT; only matching PR jobs share con
   assert.equal(workflow.concurrency, undefined);
   assert.equal(job.concurrency.group, 'pdf-vrt-${{ github.event.pull_request.number }}');
   assert.equal(job.concurrency['cancel-in-progress'], true);
-  assert.equal(job['timeout-minutes'], 45);
+  assert.equal(job['timeout-minutes'], 90);
 });
 test('untrusted PR builds have read-only permissions and do not retain checkout credentials', () => {
   assert.deepEqual(workflow.permissions, {contents: 'read'});
@@ -56,4 +56,17 @@ test('baseline/current PDF comparison, 300dpi and seven-day diagnostic artifacts
   assert.equal(uploads[0].with.name, 'pr-${{ github.event.pull_request.number }}-visual-regression');
   assert.equal(uploads[1].if, 'always()');
   assert.equal(uploads[1].with.archive, false);
+});
+
+test('EPUB uses the same head readers for both independently built sources and combines failures', () => {
+  const epub = job.steps.find(s => s.name === 'Build, render, and compare EPUBs in Docker');
+  assert.equal(epub.if, '${{ !cancelled() }}');
+  assert.match(epub.run, /scripts\/run-epub-vrt.sh/);
+  const setup = readFileSync('scripts/run-epub-vrt.sh', 'utf8');
+  assert.match(setup, /PyMuPDF==1\.26\.6/);
+  assert.match(setup, /node scripts\/run-epub-vrt.js/);
+  assert.equal(job.steps.find(s => s.name === 'Combine PDF and EPUB results').if, 'always()');
+  const smoke = yaml.load(readFileSync('.github/workflows/epub-vrt-smoke.yml', 'utf8'));
+  assert.deepEqual(smoke.permissions, {contents: 'read'});
+  assert.ok(smoke.jobs['epub-vrt-smoke'].steps.some(s => s.run?.includes('scripts/epub-vrt.integration.js')));
 });
