@@ -116,7 +116,7 @@ test('PDF/EPUB workflow passes individual upload IDs and URLs and emits distinct
 test('all PR uploads retain seven days, preserving direct PDF/EPUB downloads and non-PR retention', () => {
   const pdf = readFileSync('.github/workflows/pr.yml', 'utf8');
   const vrt = readFileSync('.github/workflows/visual-regression.yml', 'utf8');
-  assert.equal((pdf.match(/retention-days: 7/g) || []).length, 3);
+  assert.equal((pdf.match(/retention-days: 7/g) || []).length, 4);
   assert.equal((vrt.match(/retention-days: 7/g) || []).length, 2);
   assert.doesNotMatch(pdf + vrt, /retention-days: 3/);
   assert.equal((pdf.match(/archive: false/g) || []).length, 3);

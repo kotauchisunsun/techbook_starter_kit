@@ -42,26 +42,18 @@ npm run build:epub
 npm run check:epub
 ```
 
-出力先は `output/epub/book.epub` です。EPUB のビルドは npm と Playwright で行えます。印刷用 PDF の Ghostscript や Poppler は不要ですが、Mermaid 図の描画には Playwright の Chromium が必要です。メタデータ、章順、表紙・裏表紙は通常版 PDF と共有し、EPUB 用の体裁は `epub.css` で調整します。PDF のテーマとは分けて管理します。数式はビルド時に MathML に変換し、注釈は章末に表示します。数式のために JavaScript や外部サービスへ接続する必要はありません。
+出力先は `output/epub/book.epub` です。EPUB のビルドは npm と Playwright で行えます。Mermaid 図の描画には Playwright の Chromium が必要です。メタデータ、章順、表紙・裏表紙は `vivliostyle.config.js`、EPUB の出力設定は `vivliostyle.epub.config.js`、体裁は `epub.css` で調整します。表紙・裏表紙の SVG はビルド時に PNG へ自動変換し、`epub-cover.css` で表示を調整します。数式は MathML に変換し、数式用の Latin Modern Math・Temml 字体、コード用の Noto Sans Mono 字体と配色 CSS を EPUB に同梱します。注釈は章末に表示します。数式のために JavaScript や外部サービスへ接続する必要はありません。
 
 検証には公式の [EPUBCheck](https://github.com/w3c/epubcheck) を使います。Ubuntu や WSL では `sudo apt-get install epubcheck` で導入できます。それ以外の環境では公式の配布案内に従い `epubcheck` コマンドを PATH に追加するか、Java をインストールして `EPUBCHECK_JAR` 環境変数に公式 JAR ファイルのパスを設定してください。Windows では Java と `EPUBCHECK_JAR` を利用できます。CI と `build:docker` ではセットアップ時に自動で導入します。
 
 `npm run check:epub` は既定の `output/epub/book.epub` を検証します。別のファイルは `npm run check:epub -- path/to/book.epub` のように指定できます。
 
-EPUB は画面や文字サイズに応じて本文が流れるリフロー形式です。PDF の A5 判型、ページ番号、改ページや左右ページの配置をそのまま再現するものではありません。目次・章順・画像を共有しますが、数式、SVG、表、コードブロック、フォントや CSS の表示にはリーダーごとの差があります。配布前に対象の EPUB リーダーで開き、目次からの移動、日本語、図表や数式の表示を確認してください。
+EPUB は画面や文字サイズに応じて本文が流れるリフロー形式です。数式、SVG、表、コードブロック、フォントや CSS の表示にはリーダーごとの差があります。配布前に対象の EPUB リーダーで開き、目次からの移動、日本語、図表や数式の表示を確認してください。
 
 `check:epub` は EPUBCheck でパッケージ構造や EPUB 仕様への適合を検証し、エラーがある場合は失敗します。リーダーでの表示確認を置き換えるものではありません。
 
-## GitHub で PDF・EPUB を確認・公開する
+EPUB.js と Playwright で全ページを確認用の画像にするには、次を実行します。画面幅 600px と 360px の画像と `report.json` を出力し、画像の読み込み失敗、コードや数式のはみ出しなどを検出します。出力画像で表紙・図表・数式を目視確認してください。
 
-GitHub Actions は push 用の `build.yml` と pull request 用の `pr.yml` に分かれています。両方で通常版 PDF、印刷用 PDF、EPUB をビルドし、`check:pdf` と `check:epub` が成功した後に配布します。pull request では textlint も実行し、校正の指摘があってもビルドを続けます。Docker 版のビルドと検証も実行します。
-
-同じリポジトリ内のブランチから作った pull request には、textlint の結果と通常版 PDF・印刷用 PDF・EPUB のダウンロードリンクを固定コメントで案内します。ファイルは ZIP にまとめず、それぞれ `pr-<番号>-pdf.pdf`、`pr-<番号>-print-pdf.pdf`、`pr-<番号>-epub.epub` として保存します。保持期間は最大7日間で、コメントには各 Artifact の実際の保持期限（JST）を表示します。PR を閉じると定期クリーンアップの対象になるため、期限前でも削除されることがあります。open または reopened の PR の Artifact はクリーンアップから保護されます。fork からの PR では固定コメントを投稿しないので、Actions の実行画面から取得してください。
-
-`main` への push でテスト・ビルド・検証が成功すると、JST の日時をタグにした GitHub Release に次の3ファイルを公開します。
-
-- `techbook_YYYY-MM-DD-HHMMSS.pdf`: 通常版 PDF
-- `techbook_YYYY-MM-DD-HHMMSS_print.pdf`: 印刷用 PDF
-- `techbook_YYYY-MM-DD-HHMMSS.epub`: EPUB
-
-`build.yml` は Actions の「Run workflow」から手動実行もできます。`techbook-pdf` と `techbook-epub` の Artifact を保存し、`main` 上で実行した場合は Release にも公開します。`main` 以外のブランチでは Artifact の保存だけを行い、Release は公開しません。PR の作成・更新では Release は公開しません。
+```sh
+npm run check:epub:render -- output/epub/book.epub output/epub-render
+```

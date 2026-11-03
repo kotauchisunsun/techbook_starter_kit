@@ -51,9 +51,21 @@ test('GitHub reporter loads the actual ESM helper in both inline steps', async (
 
 test('EPUB inherits content and metadata without changing either PDF output', async () => {
   const { default: epubConfig } = await import('../vivliostyle.epub.config.js');
-  for (const key of ['title', 'author', 'language', 'entry', 'cover', 'toc', 'copyAsset', 'documentProcessor']) {
+  for (const key of ['title', 'author', 'language', 'toc', 'documentProcessor']) {
     assert.deepEqual(epubConfig[key], config[key], key);
   }
+  assert.deepEqual(epubConfig.copyAsset.excludes, [...config.copyAsset.excludes, 'tmp/**', 'scripts/**']);
+  assert.deepEqual(config.copyAsset.excludes, ['output/**']);
+  assert.equal(epubConfig.cover, 'assets/epub-generated/cover-0.png');
+  assert.equal(config.cover, 'assets/front-cover.svg');
+  assert.equal(epubConfig.entry.length, config.entry.length);
+  for (const [index, entry] of config.entry.entries()) {
+    assert.deepEqual(epubConfig.entry[index], typeof entry === 'object' && entry.rel === 'cover'
+      ? { ...entry, imageSrc: `assets/epub-generated/cover-${index}.png`, theme: './epub-cover.css' }
+      : entry);
+  }
+  assert.deepEqual(config.entry[0], { rel: 'cover' });
+  assert.equal(config.entry.at(-1).imageSrc, 'assets/back-cover.svg');
   assert.equal(epubConfig.theme, './epub.css');
   assert.equal(epubConfig.workspaceDir, '.vivliostyle/epub');
   assert.notEqual(epubConfig.workspaceDir, config.workspaceDir ?? '.vivliostyle');
@@ -87,6 +99,7 @@ test('all-format and Docker builds include EPUB validation with installed tools'
   assert.equal(scripts['build:epub'], 'vivliostyle build --config vivliostyle.epub.config.js');
   assert.equal(scripts['build:all'], 'npm run build && npm run build:print && npm run build:epub');
   assert.equal(scripts['check:epub'], 'node scripts/check-epub.js');
+  assert.equal(scripts['check:epub:render'], 'node scripts/render-epub.js');
   assert.match(scripts['build:docker'], /npm run build:all && npm run check:pdf -- output\/pdf\/book\.pdf output\/pdf\/book_print\.pdf && npm run check:epub/);
   assert.match(readFileSync('scripts/setup.sh', 'utf8'), /apt-get install[^\n]+\bepubcheck\b/);
 });

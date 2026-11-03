@@ -121,6 +121,56 @@ jobs:
             }
             return [...lines, '', retentionNote, runDetails({context, env: process.env})].join('\n');
 
+  epub-visual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+      - run: |
+          sudo sh scripts/setup.sh
+          npm ci
+          npx playwright install --with-deps chromium-headless-shell
+      - name: Build EPUB visual fixtures
+        run: |
+          npm run build:epub
+          npm run check:epub
+          mkdir -p tmp output/epub-stress
+          cat > tmp/epub-stress.config.js <<'EOF'
+          import config from '../vivliostyle.epub.config.js';
+          export default { ...config, title: 'EPUB stress fixture', workspaceDir: '.vivliostyle/epub-stress', entry: ['scripts/fixtures/epub-stress.md'], cover: undefined, output: [{path: 'output/epub-stress/stress.epub',format:'epub'}] };
+          EOF
+          npx vivliostyle build --config tmp/epub-stress.config.js
+          npm run check:epub -- output/epub-stress/stress.epub
+      - name: Capture comparison baseline
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api repos/kotauchisunsun/techbook_starter_kit/actions/artifacts/13224676459/zip > "$RUNNER_TEMP/original.epub"
+          node scripts/render-epub.js "$RUNNER_TEMP/original.epub" output/epub-visual/original --baseline
+      - name: Render EPUB in narrow and wide readers
+        if: ${{ !cancelled() }}
+        run: node scripts/render-epub.js output/epub/book.epub output/epub-visual/current
+      - name: Render long code and equations
+        if: ${{ !cancelled() }}
+        run: node scripts/render-epub.js output/epub-stress/stress.epub output/epub-visual/stress
+      - uses: actions/upload-artifact@v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: pr-${{ github.event.pull_request.number }}-epub-visual
+          path: |
+            output/epub-visual/
+            output/epub/book.epub
+            output/epub-stress/stress.epub
+          if-no-files-found: error
+          retention-days: 7
+
   docker-build:
     runs-on: ubuntu-latest
     timeout-minutes: 20

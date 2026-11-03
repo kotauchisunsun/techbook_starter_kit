@@ -18,7 +18,8 @@
     "check:pdf": "node scripts/check-pdf.js",
     "build:epub": "vivliostyle build --config vivliostyle.epub.config.js",
     "check:epub": "node scripts/check-epub.js",
-    "prebuild:epub": "node scripts/prepare-epub.js"
+    "prebuild:epub": "node scripts/prepare-epub.js",
+    "check:epub:render": "node scripts/render-epub.js"
   },
   "dependencies": {
     "@mitsuharu/vivliostyle-theme-noto-sans-jp": "0.2.0",
@@ -28,10 +29,15 @@
     "press-ready": "4.0.3"
   },
   "devDependencies": {
+    "@napi-rs/canvas": "0.1.69",
     "@vivliostyle/vfm": "2.7.2",
+    "epubjs": "0.3.93",
+    "jszip": "3.10.1",
     "mermaid-isomorphic": "3.1.0",
     "pdf-lib": "1.17.1",
     "playwright": "1.64.1",
+    "prismjs": "1.30.0",
+    "temml": "0.13.5",
     "textlint": "15.8.0",
     "textlint-filter-rule-allowlist": "4.0.0",
     "textlint-filter-rule-node-types": "1.1.0",
@@ -53,6 +59,7 @@
     },
     "chromium-bidi": {
       "zod": "4.6.6"
-    }
+    },
+    "@xmldom/xmldom": "0.9.12"
   }
 }

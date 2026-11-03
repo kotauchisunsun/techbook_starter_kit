@@ -1,4 +1,14 @@
-/* Keep this stylesheet independent of the paged-media PDF themes. */
+@import './assets/epub-generated/prism-okaidia.css';
+@import './assets/epub-generated/temml.css';
+
+@font-face {
+  font-family: 'Noto Sans Mono';
+  src: url('./assets/epub-generated/NotoSansMono-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+/* Reflowable body layout with self-contained code and math styles. */
 body {
   font-family: sans-serif;
   line-height: 1.7;
@@ -18,8 +28,17 @@ figcaption { font-size: 0.9em; }
 
 table { border-collapse: collapse; max-width: 100%; }
 th, td { border: 1px solid; padding: 0.3em; }
-pre { white-space: pre-wrap; overflow-wrap: anywhere; }
-code { font-family: monospace; }
+pre, pre[class*='language-'], pre code[class*='language-'] {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  font-family: 'Noto Sans Mono', monospace;
+  font-size: 0.9em;
+  text-shadow: none;
+}
+pre code[class*='language-'] { font-size: 1em; }
+code { font-family: 'Noto Sans Mono', monospace; }
+math.tml-display { margin: 1em 0; }
 
 /* Keep footnotes visible; EPUB readers cannot use PDF margin-note rules. */
 section.footnotes { margin-top: 2em; font-size: 0.9em; }

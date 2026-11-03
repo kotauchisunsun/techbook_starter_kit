@@ -72,12 +72,12 @@ test('cleanup uses scheduled/default-branch API-only execution with unchanged pe
 });
 
 test('deletes exact supported names for multiple closed PRs, including legacy ZIPs and comparison images', async () => {
-  const suffixes = ['pdf.pdf', 'print-pdf.pdf', 'epub.epub', 'pdf', 'print-pdf', 'visual-regression', 'vrt-report.json'];
+  const suffixes = ['pdf.pdf', 'print-pdf.pdf', 'epub.epub', 'epub-visual', 'pdf', 'print-pdf', 'visual-regression', 'vrt-report.json'];
   const names = [26, 27].flatMap(number => suffixes.map(suffix => `pr-${number}-${suffix}`));
   const f = fixture({artifacts: names.map((name, id) => ({name, id: id + 1}))});
   await f.run();
-  assert.deepEqual(f.deleted, Array.from({length: 14}, (_, i) => i + 1));
-  assert.deepEqual(f.checked, [...Array(7).fill(26), ...Array(7).fill(27), 26, 27]);
+  assert.deepEqual(f.deleted, Array.from({length: 16}, (_, i) => i + 1));
+  assert.deepEqual(f.checked, [...Array(8).fill(26), ...Array(8).fill(27), 26, 27]);
 });
 
 test('does not select generic, malformed, prefix/suffix collision or unsafe-number names', async () => {
@@ -283,7 +283,7 @@ test('upload copies carry the actual PR-specific names and preserve PDF/EPUB byt
         assert.deepEqual(readFileSync(join(root, `tmp/pr-artifacts/pr-${number}-${suffix}`)), readFileSync(join(root, `output/${source}`)));
       }
     }
-    assert.equal((text.match(/retention-days: 7/g) || []).length, 3);
+    assert.equal((text.match(/retention-days: 7/g) || []).length, 4);
     assert.equal((text.match(/archive: false/g) || []).length, 3);
     assert.match(text, /path: \$\{\{ runner.temp \}\}\/pr-artifacts\/pr-\$\{\{ github.event.pull_request.number \}\}-pdf.pdf/);
     assert.match(text, /path: \$\{\{ runner.temp \}\}\/pr-artifacts\/pr-\$\{\{ github.event.pull_request.number \}\}-print-pdf.pdf/);
