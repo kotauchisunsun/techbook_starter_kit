@@ -69,7 +69,10 @@ jobs:
             -w /work/current node:24-trixie-slim sh scripts/run-epub-vrt.sh
       - name: Combine PDF and EPUB results
         if: always()
-        run: node scripts/combine-vrt-reports.js output/visual
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        # Docker outputs can be root-owned; host writes belong in runner temp.
+        run: node scripts/combine-vrt-reports.js output/visual "$RUNNER_TEMP/vrt-report/pr-${PR_NUMBER}-vrt-report.json"
       - uses: actions/upload-artifact@v7.0.2
         id: visual
         if: failure()
@@ -86,11 +89,10 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           mkdir -p "$RUNNER_TEMP/vrt-report"
-          if [ ! -f output/visual/report.json ]; then
-            mkdir -p output/visual
-            printf '%s\n' '{"errors":[{"reason":"VRT report unavailable; inspect the workflow logs."}]}' > output/visual/report.json
+          report="$RUNNER_TEMP/vrt-report/pr-${PR_NUMBER}-vrt-report.json"
+          if [ ! -f "$report" ]; then
+            printf '%s\n' '{"errors":[{"reason":"VRT report unavailable; inspect the workflow logs."}]}' > "$report"
           fi
-          cp output/visual/report.json "$RUNNER_TEMP/vrt-report/pr-${PR_NUMBER}-vrt-report.json"
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:

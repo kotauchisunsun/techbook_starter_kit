@@ -1,8 +1,8 @@
 import {readFileSync, mkdirSync, writeFileSync} from 'node:fs';
-import {join, resolve} from 'node:path';
+import {dirname, join, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
-export function combineReports(directory) {
+export function combineReports(directory, outputFile = join(directory, 'report.json')) {
   const errors = [];
   for (const format of ['pdf', 'epub']) {
     try {
@@ -16,10 +16,10 @@ export function combineReports(directory) {
   // The trusted reporter bounds untrusted input to 200 entries and 1 MiB.
   const omitted = Math.max(0, errors.length - 199);
   const summary = {errors: omitted ? [...errors.slice(0, 199), {reason: `${omitted} further differences; see full format reports in the image artifact.`}] : errors};
-  mkdirSync(directory, {recursive: true});
-  writeFileSync(join(directory, 'report.json'), `${JSON.stringify(summary, null, 2)}\n`);
+  mkdirSync(dirname(outputFile), {recursive: true});
+  writeFileSync(outputFile, `${JSON.stringify(summary, null, 2)}\n`);
   return summary;
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  if (combineReports(process.argv[2] || 'output/visual').errors.length) process.exitCode = 1;
+  if (combineReports(process.argv[2] || 'output/visual', process.argv[3]).errors.length) process.exitCode = 1;
 }
