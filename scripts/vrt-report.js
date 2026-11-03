@@ -76,7 +76,7 @@ function reportLines(text) {
       if (typeof error.images !== 'object' || Array.isArray(error.images)) throw new Error('Invalid images');
       for (const [kind, label] of [['before', '更新前'], ['after', '更新後'], ['diff', '差分']]) {
         const path = error.images[kind];
-        if (path != null && (typeof path !== 'string' || !new RegExp(`^${kind}/book(?:_print)?-[0-9]+\\.png$`).test(path))) {
+        if (path != null && (typeof path !== 'string' || !new RegExp(`^(?:${kind}/book(?:_print)?-[0-9]+|epub/${kind}/(?:chromium|webkit|mupdf)/[0-9]+x[0-9]+/page-[0-9]+)\\.png$`).test(path))) {
           throw new Error('Invalid image path');
         }
         lines.push(`- ${label}: ${path ? `\`${path}\`` : '画像なし'}`);
@@ -93,7 +93,7 @@ async function publish({github, context, core, plan, directory}) {
       current.conclusion !== plan.conclusion) return false;
   const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${plan.runId}`;
   const lines = [marker, `<!-- vrt-run:${plan.runId}:${plan.attempt} -->`,
-    plan.conclusion === 'success' ? 'PDF の表示に差分はありませんでした。' : '❌ PDF のビジュアル回帰テストに失敗しました。'];
+    plan.conclusion === 'success' ? '表示に差分はありませんでした。' : '❌ ビジュアル回帰テストに失敗しました。'];
   if (plan.conclusion === 'failure') {
     try {
       if (!plan.reportId) throw new Error('Report artifact unavailable');

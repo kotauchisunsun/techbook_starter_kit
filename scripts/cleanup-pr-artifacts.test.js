@@ -72,19 +72,19 @@ test('cleanup uses scheduled/default-branch API-only execution with unchanged pe
 });
 
 test('deletes exact supported names for multiple closed PRs, including legacy ZIPs and comparison images', async () => {
-  const suffixes = ['pdf.pdf', 'print-pdf.pdf', 'epub.epub', 'epub-visual', 'pdf', 'print-pdf', 'visual-regression', 'vrt-report.json'];
+  const suffixes = ['pdf.pdf', 'print-pdf.pdf', 'epub.epub', 'epub-visual', 'epub-vrt-smoke', 'pdf', 'print-pdf', 'visual-regression', 'vrt-report.json'];
   const names = [26, 27].flatMap(number => suffixes.map(suffix => `pr-${number}-${suffix}`));
   const f = fixture({artifacts: names.map((name, id) => ({name, id: id + 1}))});
   await f.run();
-  assert.deepEqual(f.deleted, Array.from({length: 16}, (_, i) => i + 1));
-  assert.deepEqual(f.checked, [...Array(8).fill(26), ...Array(8).fill(27), 26, 27]);
+  assert.deepEqual(f.deleted, Array.from({length: 18}, (_, i) => i + 1));
+  assert.deepEqual(f.checked, [...Array(9).fill(26), ...Array(9).fill(27), 26, 27]);
 });
 
 test('does not select generic, malformed, prefix/suffix collision or unsafe-number names', async () => {
   const names = ['book.pdf', 'book_print.pdf', 'pr-026-pdf.pdf', 'pr-0-pdf.pdf', 'pr--26-pdf.pdf',
     'pr-26-pdf.pdf.backup', 'pr-26-unknown', 'xpr-26-pdf.pdf', 'pr-26-pdf.pdf\n',
     'pr-26-pdf.pdf\r\n', 'pr-26e1-pdf.pdf', 'pr-9007199254740992-pdf.pdf', 'pr-26-pdfXpdf',
-    'book.epub', 'techbook-epub', 'pr-26-epub', 'pr-26-epub.epub.backup', 'pr-026-epub.epub',
+    'epub-vrt-smoke-123', 'pr-026-epub-vrt-smoke', 'pr-0-epub-vrt-smoke', 'pr-26-epub-vrt-smoke.backup', 'xpr-26-epub-vrt-smoke', 'pr-26-epub-vrt-smoke\n', 'book.epub', 'techbook-epub', 'pr-26-epub', 'pr-26-epub.epub.backup', 'pr-026-epub.epub',
     'pr-26-epub.epub\n', 'pr-26-epubXepub', 'pr-9007199254740992-epub.epub'];
   const f = fixture({artifacts: names.map((name, id) => ({name, id: id + 1}))});
   await f.run();
@@ -310,4 +310,12 @@ test('EPUB cleanup requires a closed PR and protects reopened, expired and unver
   await reopened.run();
   assert.deepEqual(reopened.deleted, [1]);
   assert.equal(reopened.summary.rows[0].at(-1), 'open / reopened のため保持');
+});
+
+test('EPUB smoke artifacts remain protected for open or unverified PRs', async () => {
+  for (const options of [{state: 'open'}, {state: 'unknown'}, {pullStatus: 404}]) {
+    const f = fixture({artifacts: [{id: 1, name: 'pr-26-epub-vrt-smoke'}], ...options});
+    await f.run();
+    assert.deepEqual(f.deleted, []);
+  }
 });

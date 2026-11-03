@@ -1,0 +1,40 @@
+name: Test EPUB visual comparison
+
+on:
+  pull_request: {}
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  epub-vrt-smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends imagemagick
+          python -m pip install PyMuPDF==1.26.6
+          npm ci
+          npx playwright install --with-deps chromium-headless-shell webkit
+      - run: node --test scripts/compare-epub-pages.test.js
+      - run: node scripts/epub-vrt.integration.js
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: ${{ github.event_name == 'pull_request' && format('pr-{0}-epub-vrt-smoke', github.event.pull_request.number) || format('epub-vrt-smoke-{0}', github.run_id) }}
+          path: output/epub-vrt-smoke/
+          retention-days: 7
+          if-no-files-found: error
