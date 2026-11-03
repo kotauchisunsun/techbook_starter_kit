@@ -142,6 +142,7 @@ test('EPUB preparation bundles portable token styles with every referenced body 
     assert.match(bundle, /table\s*\{[^}]*margin: 1em auto;[^}]*border-top: 1px solid;/);
     assert.match(bundle, /pre\s*\{[^}]*background-color: #272822;/);
     assert.match(bundle, /pre code\s*\{[^}]*background-color: transparent;/);
+    assert.match(bundle, /#landmarks\s*\{\s*display: none;\s*\}/);
   } finally {
     rmSync(outputRoot, { recursive: true, force: true });
   }

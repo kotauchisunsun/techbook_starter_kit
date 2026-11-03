@@ -132,3 +132,7 @@ code { font-family: 'Noto Sans Mono', 'Noto Sans JP', monospace; }
 /* Keep footnotes visible; EPUB readers cannot use PDF margin-note rules. */
 .footnotes { margin-top: 2em; font-size: 0.9em; }
 nav ol { padding-left: 1.5em; }
+
+/* Preserve EPUB navigation metadata without displaying it as book content.
+   Some reading engines ignore the generated landmarks nav's hidden attribute. */
+#landmarks { display: none; }

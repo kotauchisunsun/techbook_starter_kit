@@ -91,7 +91,12 @@ test('EPUB math and footnotes do not require runtime JavaScript or PDF page marg
   assert.match(html, /id="fn1"/);
   assert.match(html, /注釈本文/);
   const css = readFileSync('epub.css', 'utf8');
-  assert.doesNotMatch(css, /@page|display:\s*none/);
+  assert.doesNotMatch(css, /@page/);
+  // Only the generated reader-navigation landmark list may be hidden.
+  // Footnotes and all other book content must remain visible.
+  for (const [, selector, declarations] of css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    if (/display:\s*none/.test(declarations)) assert.equal(selector.trim(), '#landmarks');
+  }
 });
 
 test('all-format and Docker builds include EPUB validation with installed tools', () => {
