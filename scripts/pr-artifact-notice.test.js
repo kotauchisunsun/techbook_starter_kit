@@ -92,34 +92,38 @@ function workflowScript(path) {
   return lines.slice(0, end < 0 ? lines.length : end).map(line => line.slice(12)).join('\n');
 }
 
-test('PDF workflow passes individual upload IDs and URLs and emits distinct per-artifact expiry dates', async () => {
+test('PDF/EPUB workflow passes individual upload IDs and URLs and emits distinct per-artifact expiry dates', async () => {
   const script = workflowScript('.github/workflows/pr.yml');
   const execute = new AsyncFunction('github', 'core', 'context', 'process', script);
   const seen = [];
   const github = {rest: {actions: {getArtifact: async ({artifact_id}) => {
     seen.push(artifact_id);
     return {data: {id: artifact_id, workflow_run: {id: 123},
-      name: artifact_id === 456 ? 'pr-26-pdf.pdf' : 'pr-26-print-pdf.pdf',
-      expires_at: artifact_id === 456 ? '2099-01-02T14:59:59Z' : '2099-01-02T15:00:00Z'}};
+      name: {456: 'pr-26-pdf.pdf', 789: 'pr-26-print-pdf.pdf', 987: 'pr-26-epub.epub'}[artifact_id],
+      expires_at: {456: '2099-01-02T14:59:59Z', 789: '2099-01-02T15:00:00Z', 987: '2099-01-03T15:00:00Z'}[artifact_id]}};
   }}}};
   const result = await execute(github, {warning() {}}, context, {env: {...env, GITHUB_WORKSPACE: process.cwd(), PR_NUMBER: '26',
-    PDF_ID: '456', PDF_URL: url, PRINT_PDF_ID: '789', PRINT_PDF_URL: url.replace('456', '789')}});
-  assert.deepEqual(seen, [456, 789]);
+    PDF_ID: '456', PDF_URL: url, PRINT_PDF_ID: '789', PRINT_PDF_URL: url.replace('456', '789'),
+    EPUB_ID: '987', EPUB_URL: url.replace('456', '987')}});
+  assert.deepEqual(seen, [456, 789, 987]);
   assert.match(result, /通常版 PDF.*artifacts\/456.*保持期限:2099\/01\/02/);
   assert.match(result, /印刷用 PDF.*artifacts\/789.*保持期限:2099\/01\/03/);
+  assert.match(result, /EPUB.*artifacts\/987.*保持期限:2099\/01\/04/);
   assert.match(result, /actions\/runs\/123\/attempts\/2/);
   assert.match(result, /期限前に削除されることがあります/);
 });
 
-test('all PR uploads retain seven days, preserving direct PDF downloads and non-PR retention', () => {
+test('all PR uploads retain seven days, preserving direct PDF/EPUB downloads and non-PR retention', () => {
   const pdf = readFileSync('.github/workflows/pr.yml', 'utf8');
   const vrt = readFileSync('.github/workflows/visual-regression.yml', 'utf8');
-  assert.equal((pdf.match(/retention-days: 7/g) || []).length, 2);
+  assert.equal((pdf.match(/retention-days: 7/g) || []).length, 4);
   assert.equal((vrt.match(/retention-days: 7/g) || []).length, 2);
   assert.doesNotMatch(pdf + vrt, /retention-days: 3/);
-  assert.equal((pdf.match(/archive: false/g) || []).length, 2);
+  assert.equal((pdf.match(/archive: false/g) || []).length, 3);
   assert.match(pdf, /PDF_ID: \$\{\{ steps.pdf.outputs.artifact-id \}\}/);
   assert.match(pdf, /PRINT_PDF_ID: \$\{\{ steps.print_pdf.outputs.artifact-id \}\}/);
+  assert.match(pdf, /EPUB_ID: \$\{\{ steps.epub.outputs.artifact-id \}\}/);
+  assert.match(pdf, /EPUB_URL: \$\{\{ steps.epub.outputs.artifact-url \}\}/);
   assert.match(pdf, /built_at: \$\{\{ steps.build.outputs.built_at \}\}/);
   assert.match(pdf, /needs.build.outputs.artifact_notice/);
   assert.doesNotMatch(readFileSync('.github/workflows/build.yml', 'utf8'), /retention-days:/);

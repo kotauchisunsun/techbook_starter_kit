@@ -48,3 +48,78 @@ test('GitHub reporter loads the actual ESM helper in both inline steps', async (
   }
   assert.deepEqual(outputs, {plan: '', report_id: ''});
 });
+
+test('EPUB inherits content and metadata without changing either PDF output', async () => {
+  const { default: epubConfig } = await import('../vivliostyle.epub.config.js');
+  for (const key of ['title', 'author', 'language', 'toc']) {
+    assert.deepEqual(epubConfig[key], config[key], key);
+  }
+  assert.deepEqual(epubConfig.copyAsset.excludes, [...config.copyAsset.excludes, 'tmp/**', 'scripts/**']);
+  assert.deepEqual(config.copyAsset.excludes, ['output/**']);
+  assert.equal(epubConfig.cover, 'assets/epub-generated/cover-0.png');
+  assert.equal(config.cover, 'assets/front-cover.svg');
+  assert.equal(epubConfig.entry.length, config.entry.length);
+  for (const [index, entry] of config.entry.entries()) {
+    assert.deepEqual(epubConfig.entry[index], typeof entry === 'object' && entry.rel === 'cover'
+      ? { ...entry, imageSrc: `assets/epub-generated/cover-${index}.png`, theme: './epub-cover.css' }
+      : entry);
+  }
+  assert.deepEqual(config.entry[0], { rel: 'cover' });
+  assert.equal(config.entry.at(-1).imageSrc, 'assets/back-cover.svg');
+  assert.equal(epubConfig.theme, './assets/epub-generated/epub.css');
+  assert.equal(epubConfig.workspaceDir, '.vivliostyle/epub');
+  assert.notEqual(epubConfig.workspaceDir, config.workspaceDir ?? '.vivliostyle');
+  assert.equal(epubConfig.vfm.table.cell, 'align-style');
+  assert.deepEqual(epubConfig.output, [{ path: 'output/epub/book.epub', format: 'epub' }]);
+  assert.equal(epubConfig.vfm.mathRenderer, 'mathjax');
+  assert.equal(epubConfig.vfm.footnote, 'pandoc');
+  assert.equal(config.vfm?.mathRenderer, undefined);
+  assert.equal(config.output[0].format, 'pdf');
+  assert.equal(printConfig.output[0].format, 'pdf');
+});
+
+test('EPUB math and footnotes do not require runtime JavaScript or PDF page margins', async () => {
+  const { default: epubConfig } = await import('../vivliostyle.epub.config.js');
+  const html = String(await epubConfig.documentProcessor(epubConfig.vfm, { title: 'EPUB test', lang: 'ja' }).process(
+    '# テスト\n\n$x^2=1$ と注釈[^1]。\n\n$$\n\\frac{1}{2}\n$$\n\n[^1]: 注釈本文。'
+  ));
+  assert.match(html, /<svg[ >]/);
+  assert.match(html, /data-mml-node="mfrac"/);
+  assert.match(html, /aria-label="x\^2=1"/);
+  assert.doesNotMatch(html, /<script|MathJax|data-math-typeset/);
+  assert.match(html, /href="#fn1"/);
+  assert.match(html, /id="fn1"/);
+  assert.match(html, /注釈本文/);
+  const css = readFileSync('epub.css', 'utf8');
+  assert.doesNotMatch(css, /@page/);
+  // Only the generated reader-navigation landmark list may be hidden.
+  // Footnotes and all other book content must remain visible.
+  for (const [, selector, declarations] of css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    if (/display:\s*none/.test(declarations)) assert.equal(selector.trim(), '#landmarks');
+  }
+});
+
+test('all-format and Docker builds include EPUB validation with installed tools', () => {
+  const { scripts } = JSON.parse(readFileSync('package.json', 'utf8'));
+  assert.equal(scripts.build, 'vivliostyle build');
+  assert.equal(scripts['build:epub'], 'vivliostyle build --config vivliostyle.epub.config.js');
+  assert.equal(scripts['build:all'], 'npm run build && npm run build:print && npm run build:epub');
+  assert.equal(scripts['check:epub'], 'node scripts/check-epub.js');
+  assert.equal(scripts['check:epub:render'], 'node scripts/render-epub.js');
+  assert.match(scripts['build:docker'], /npm run build:all && npm run check:pdf -- output\/pdf\/book\.pdf output\/pdf\/book_print\.pdf && npm run check:epub/);
+  assert.match(readFileSync('scripts/setup.sh', 'utf8'), /apt-get install[^\n]+\bepubcheck\b/);
+});
+
+
+test('EPUB tables preserve left, center and right alignment with conforming CSS', async () => {
+  const { default: epubConfig } = await import('../vivliostyle.epub.config.js');
+  const markdown = '| 左 | 中央 | 右 |\n| :--- | :---: | ---: |\n| a | b | c |';
+  const html = String(await epubConfig.documentProcessor(epubConfig.vfm).process(markdown));
+  assert.doesNotMatch(html, /\salign=/);
+  for (const align of ['left', 'center', 'right']) {
+    assert.match(html, new RegExp(`<th style="text-align: ${align}">`));
+    assert.match(html, new RegExp(`<td style="text-align: ${align}">`));
+  }
+  const pdfHtml = String(await config.documentProcessor(config.vfm).process(markdown));
+  assert.match(pdfHtml, /align="right"/);
+});

@@ -72,18 +72,20 @@ test('cleanup uses scheduled/default-branch API-only execution with unchanged pe
 });
 
 test('deletes exact supported names for multiple closed PRs, including legacy ZIPs and comparison images', async () => {
-  const suffixes = ['pdf.pdf', 'print-pdf.pdf', 'pdf', 'print-pdf', 'visual-regression', 'vrt-report.json'];
+  const suffixes = ['pdf.pdf', 'print-pdf.pdf', 'epub.epub', 'epub-visual', 'pdf', 'print-pdf', 'visual-regression', 'vrt-report.json'];
   const names = [26, 27].flatMap(number => suffixes.map(suffix => `pr-${number}-${suffix}`));
   const f = fixture({artifacts: names.map((name, id) => ({name, id: id + 1}))});
   await f.run();
-  assert.deepEqual(f.deleted, Array.from({length: 12}, (_, i) => i + 1));
-  assert.deepEqual(f.checked, [26, 26, 26, 26, 26, 26, 27, 27, 27, 27, 27, 27, 26, 27]);
+  assert.deepEqual(f.deleted, Array.from({length: 16}, (_, i) => i + 1));
+  assert.deepEqual(f.checked, [...Array(8).fill(26), ...Array(8).fill(27), 26, 27]);
 });
 
 test('does not select generic, malformed, prefix/suffix collision or unsafe-number names', async () => {
   const names = ['book.pdf', 'book_print.pdf', 'pr-026-pdf.pdf', 'pr-0-pdf.pdf', 'pr--26-pdf.pdf',
     'pr-26-pdf.pdf.backup', 'pr-26-unknown', 'xpr-26-pdf.pdf', 'pr-26-pdf.pdf\n',
-    'pr-26-pdf.pdf\r\n', 'pr-26e1-pdf.pdf', 'pr-9007199254740992-pdf.pdf', 'pr-26-pdfXpdf'];
+    'pr-26-pdf.pdf\r\n', 'pr-26e1-pdf.pdf', 'pr-9007199254740992-pdf.pdf', 'pr-26-pdfXpdf',
+    'book.epub', 'techbook-epub', 'pr-26-epub', 'pr-26-epub.epub.backup', 'pr-026-epub.epub',
+    'pr-26-epub.epub\n', 'pr-26-epubXepub', 'pr-9007199254740992-epub.epub'];
   const f = fixture({artifacts: names.map((name, id) => ({name, id: id + 1}))});
   await f.run();
   assert.deepEqual(f.deleted, []);
@@ -263,27 +265,49 @@ test('initial list failure reports unknown scope and preserves the original API 
   await assert.rejects(failedSummary.run(), /API failed: 403/);
 });
 
-test('upload copies carry the actual PR-specific names and preserve PDF bytes and source names', () => {
+test('upload copies carry the actual PR-specific names and preserve PDF/EPUB bytes and source names', () => {
   const text = readFileSync('.github/workflows/pr.yml', 'utf8');
-  const step = text.split('      - name: Prepare PR-specific PDF filenames\n')[1].split('      - uses:')[0];
+  const step = text.split('      - name: Prepare PR-specific artifact filenames\n')[1].split('      - uses:')[0];
   const shell = step.split('        run: |\n')[1].split('\n').map(line => line.replace(/^          /, '')).join('\n');
   const root = mkdtempSync(join(tmpdir(), 'pr-artifacts-test-'));
   try {
     mkdirSync(join(root, 'output/pdf'), {recursive: true});
+    mkdirSync(join(root, 'output/epub'), {recursive: true});
     mkdirSync(join(root, 'tmp'));
     writeFileSync(join(root, 'output/pdf/book.pdf'), 'normal PDF test bytes');
     writeFileSync(join(root, 'output/pdf/book_print.pdf'), 'print PDF test bytes');
+    writeFileSync(join(root, 'output/epub/book.epub'), 'EPUB test bytes');
     for (const number of ['26', '27']) {
       execFileSync('bash', ['-eu', '-c', shell], {cwd: root, env: {...process.env, PR_NUMBER: number, RUNNER_TEMP: join(root, 'tmp')}});
-      for (const [source, suffix] of [['book.pdf', 'pdf.pdf'], ['book_print.pdf', 'print-pdf.pdf']]) {
-        assert.deepEqual(readFileSync(join(root, `tmp/pr-artifacts/pr-${number}-${suffix}`)), readFileSync(join(root, `output/pdf/${source}`)));
+      for (const [source, suffix] of [['pdf/book.pdf', 'pdf.pdf'], ['pdf/book_print.pdf', 'print-pdf.pdf'], ['epub/book.epub', 'epub.epub']]) {
+        assert.deepEqual(readFileSync(join(root, `tmp/pr-artifacts/pr-${number}-${suffix}`)), readFileSync(join(root, `output/${source}`)));
       }
     }
-    assert.equal((text.match(/retention-days: 7/g) || []).length, 2);
-    assert.equal((text.match(/archive: false/g) || []).length, 2);
+    assert.equal((text.match(/retention-days: 7/g) || []).length, 4);
+    assert.equal((text.match(/archive: false/g) || []).length, 3);
     assert.match(text, /path: \$\{\{ runner.temp \}\}\/pr-artifacts\/pr-\$\{\{ github.event.pull_request.number \}\}-pdf.pdf/);
     assert.match(text, /path: \$\{\{ runner.temp \}\}\/pr-artifacts\/pr-\$\{\{ github.event.pull_request.number \}\}-print-pdf.pdf/);
+    assert.match(text, /path: \$\{\{ runner.temp \}\}\/pr-artifacts\/pr-\$\{\{ github.event.pull_request.number \}\}-epub.epub/);
   } finally {
     rmSync(root, {recursive: true, force: true});
   }
+});
+
+test('EPUB cleanup requires a closed PR and protects reopened, expired and unverified artifacts', async () => {
+  const artifacts = [{id: 1, name: 'pr-26-epub.epub'}, {id: 2, name: 'pr-26-epub.epub'}];
+  for (const options of [
+    {state: 'open'}, {state: 'unknown'}, {pullStatus: 404},
+    {prResponse: pr => ({...pr, base: {repo: {full_name: 'other/repo'}}})},
+    {prResponse: pr => ({...pr, number: 27})},
+    {artifacts: artifacts.map(artifact => ({...artifact, expired: true}))},
+  ]) {
+    const f = fixture({artifacts, ...options});
+    await f.run();
+    assert.deepEqual(f.deleted, []);
+  }
+  const reopened = fixture({artifacts,
+    prResponse: (pr, call) => ({...pr, state: call === 1 ? 'closed' : 'open'})});
+  await reopened.run();
+  assert.deepEqual(reopened.deleted, [1]);
+  assert.equal(reopened.summary.rows[0].at(-1), 'open / reopened のため保持');
 });

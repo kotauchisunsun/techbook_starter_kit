@@ -1,0 +1,12 @@
+/* Override Vivliostyle's viewport-sized default even in paginated readers. */
+html, body { margin: 0; padding: 0; }
+body > section[aria-label='Cover'] { margin: 0; padding: 0; }
+html body img[role='doc-cover'] {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  max-height: 100vh;
+  object-fit: contain;
+  margin: 0 auto;
+}

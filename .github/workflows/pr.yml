@@ -1,4 +1,4 @@
-name: Check pull request PDFs
+name: Check pull request PDF and EPUB
 
 on:
   pull_request:
@@ -21,7 +21,7 @@ jobs:
 
   build:
     runs-on: ubuntu-slim
-    timeout-minutes: 15
+    timeout-minutes: 20
     permissions:
       contents: read
       actions: read
@@ -37,7 +37,7 @@ jobs:
         with:
           node-version: '24'
           cache: npm
-      - name: Install fonts and PDF tools
+      - name: Install fonts and publication tools
         run: sudo sh scripts/setup.sh
       - name: Install dependencies
         run: |
@@ -56,21 +56,23 @@ jobs:
             cat "$RUNNER_TEMP/textlint.log"
             echo "$delimiter"
           } >> "$GITHUB_OUTPUT"
-      - name: Build and check PDFs
+      - name: Build and check PDF and EPUB
         id: build
         run: |
           npm run build:all
           npm run check:pdf -- output/pdf/book.pdf output/pdf/book_print.pdf
+          npm run check:epub
           echo "built_at=$(TZ=Asia/Tokyo date +'%Y-%m-%d %H:%M:%S JST')" >> "$GITHUB_OUTPUT"
       # archive:false uses the filename, not the name input. Give each PR
-      # its own upload copies; leave build/release source PDFs unchanged.
-      - name: Prepare PR-specific PDF filenames
+      # its own upload copies; leave build/release source files unchanged.
+      - name: Prepare PR-specific artifact filenames
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           mkdir -p "$RUNNER_TEMP/pr-artifacts"
           cp output/pdf/book.pdf "$RUNNER_TEMP/pr-artifacts/pr-${PR_NUMBER}-pdf.pdf"
           cp output/pdf/book_print.pdf "$RUNNER_TEMP/pr-artifacts/pr-${PR_NUMBER}-print-pdf.pdf"
+          cp output/epub/book.epub "$RUNNER_TEMP/pr-artifacts/pr-${PR_NUMBER}-epub.epub"
       - uses: actions/upload-artifact@v7.0.2
         id: pdf
         with:
@@ -87,8 +89,16 @@ jobs:
           archive: false
           if-no-files-found: error
           retention-days: 7
+      - uses: actions/upload-artifact@v7.0.2
+        id: epub
+        with:
+          name: pr-${{ github.event.pull_request.number }}-epub.epub
+          path: ${{ runner.temp }}/pr-artifacts/pr-${{ github.event.pull_request.number }}-epub.epub
+          archive: false
+          if-no-files-found: error
+          retention-days: 7
 
-      - name: Read PDF artifact expiry dates
+      - name: Read artifact expiry dates
         id: artifact_notice
         uses: actions/github-script@v9
         env:
@@ -97,21 +107,80 @@ jobs:
           PDF_URL: ${{ steps.pdf.outputs.artifact-url }}
           PRINT_PDF_ID: ${{ steps.print_pdf.outputs.artifact-id }}
           PRINT_PDF_URL: ${{ steps.print_pdf.outputs.artifact-url }}
+          EPUB_ID: ${{ steps.epub.outputs.artifact-id }}
+          EPUB_URL: ${{ steps.epub.outputs.artifact-url }}
         with:
           result-encoding: string
           script: |
             const {artifactDownloadLine, runDetails, retentionNote} = await import(`${process.env.GITHUB_WORKSPACE}/scripts/pr-artifact-notice.js`);
             const lines = [];
-            for (const [key, suffix, label] of [['PDF', 'pdf.pdf', '通常版 PDF'], ['PRINT_PDF', 'print-pdf.pdf', '印刷用 PDF']]) {
+            for (const [key, suffix, label] of [['PDF', 'pdf.pdf', '通常版 PDF'], ['PRINT_PDF', 'print-pdf.pdf', '印刷用 PDF'], ['EPUB', 'epub.epub', 'EPUB']]) {
               lines.push(await artifactDownloadLine({github, core, context,
                 artifactId: process.env[`${key}_ID`], artifactUrl: process.env[`${key}_URL`],
                 expectedName: `pr-${process.env.PR_NUMBER}-${suffix}`, label}));
             }
             return [...lines, '', retentionNote, runDetails({context, env: process.env})].join('\n');
 
-  docker-build:
+  epub-visual:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+      - run: |
+          sudo sh scripts/setup.sh
+          npm ci
+          npx playwright install --with-deps chromium-headless-shell webkit
+          python -m pip install PyMuPDF==1.26.6
+          python scripts/render-epub-mupdf.test.py
+      - name: Build EPUB visual fixtures
+        run: |
+          npm run build:epub
+          npm run check:epub
+          mkdir -p tmp output/epub-stress
+          cat > tmp/epub-stress.config.js <<'EOF'
+          import config from '../vivliostyle.epub.config.js';
+          export default { ...config, title: 'EPUB stress fixture', workspaceDir: '.vivliostyle/epub-stress', entry: ['scripts/fixtures/epub-stress.md'], cover: undefined, output: [{path: 'output/epub-stress/stress.epub',format:'epub'}] };
+          EOF
+          npx vivliostyle build --config tmp/epub-stress.config.js
+          npm run check:epub -- output/epub-stress/stress.epub
+      - name: Render EPUB in narrow and wide readers
+        if: ${{ !cancelled() }}
+        run: node scripts/render-epub.js output/epub/book.epub output/epub-visual/current
+      - name: Render long code and equations
+        if: ${{ !cancelled() }}
+        run: node scripts/render-epub.js output/epub-stress/stress.epub output/epub-visual/stress
+      - name: Render EPUB with WebKit
+        if: ${{ !cancelled() }}
+        run: node scripts/render-epub.js output/epub/book.epub output/epub-visual/current-webkit --browser=webkit
+      - name: Render long code and equations with WebKit
+        if: ${{ !cancelled() }}
+        run: node scripts/render-epub.js output/epub-stress/stress.epub output/epub-visual/stress-webkit --browser=webkit
+      - name: Render EPUB and stress fixture with MuPDF
+        if: ${{ !cancelled() }}
+        run: |
+          python scripts/render-epub-mupdf.py output/epub/book.epub output/epub-visual/current-mupdf
+          python scripts/render-epub-mupdf.py output/epub-stress/stress.epub output/epub-visual/stress-mupdf
+      - uses: actions/upload-artifact@v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: pr-${{ github.event.pull_request.number }}-epub-visual
+          path: |
+            output/epub-visual/
+            output/epub/book.epub
+            output/epub-stress/stress.epub
+          if-no-files-found: error
+          retention-days: 7
+
+  docker-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-node@v7.1.0
@@ -142,10 +211,10 @@ jobs:
         with:
           header: pdf-build
           message: |
-            ビルドしたPDF(${{ needs.build.outputs.built_at }}):
+            ビルドした PDF・EPUB (${{ needs.build.outputs.built_at }}):
             ${{ needs.build.outputs.artifact_notice }}
       - uses: marocchino/sticky-pull-request-comment@v3
         if: ${{ always() && needs.build.result == 'failure' }}
         with:
           header: pdf-build
-          message: ❌pdfのビルドに失敗しました。
+          message: ❌PDF・EPUB のビルドまたは検証に失敗しました。

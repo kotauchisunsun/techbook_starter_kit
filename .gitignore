@@ -2,3 +2,6 @@
 /.vivliostyle/
 /output/
 /tmp/
+/assets/epub-generated/
+
+__pycache__/
