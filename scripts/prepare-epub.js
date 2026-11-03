@@ -2,7 +2,7 @@ import { mkdir, copyFile, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
-import { createCanvas, GlobalFonts, loadImage } from '@napi-rs/canvas';
+import { Resvg } from '@resvg/resvg-js';
 import sourceConfig from '../vivliostyle.config.js';
 import config from '../vivliostyle.epub.config.js';
 import { epubAssetDirectory, epubCoverEntries } from './epub-assets.js';
@@ -50,10 +50,7 @@ export async function prepareEpub({ root = sourceRoot, outputRoot = root, source
   await copy(require.resolve('temml/dist/Temml.woff2'), 'Temml.woff2');
   await copy(join(root, 'assets/fonts/latinmodernmath.woff2'), 'latinmodernmath.woff2');
   const fontRoot = join(dirname(require.resolve('@mitsuharu/vivliostyle-theme-noto-sans-jp/package.json')), 'fonts');
-  for (const weight of ['Regular', 'Bold']) {
-    const font = join(fontRoot, `Noto_Sans_JP/static/NotoSansJP-${weight}.ttf`);
-    if (!GlobalFonts.registerFromPath(font, 'Noto Sans JP')) throw new Error(`Could not load cover font: ${font}`);
-  }
+  const coverFonts = ['Regular', 'Bold'].map(weight => join(fontRoot, `Noto_Sans_JP/static/NotoSansJP-${weight}.ttf`));
   await copy(join(fontRoot, 'Noto_Sans_Mono/static/NotoSansMono-Regular.ttf'), 'NotoSansMono-Regular.ttf');
   const licenses = [
     ['Prism', require.resolve('prismjs/LICENSE')],
@@ -69,10 +66,10 @@ export async function prepareEpub({ root = sourceRoot, outputRoot = root, source
   // as the source artwork. Bitmap covers are passed through unchanged.
   for (const cover of epubCoverEntries(source)) {
     if (cover.source === cover.target) continue;
-    const image = await loadImage(await readFile(resolve(root, cover.source)));
-    const canvas = createCanvas(image.width, image.height);
-    canvas.getContext('2d').drawImage(image, 0, 0);
-    await writeFile(resolve(outputRoot, cover.target), await canvas.encode('png'));
+    const image = new Resvg(await readFile(resolve(root, cover.source)), {
+      font: { fontFiles: coverFonts, loadSystemFonts: false, defaultFontFamily: 'Noto Sans JP' },
+    }).render();
+    await writeFile(resolve(outputRoot, cover.target), image.asPng());
   }
 }
 

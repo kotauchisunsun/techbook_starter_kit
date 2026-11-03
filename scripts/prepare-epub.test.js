@@ -173,3 +173,29 @@ test('EPUB preparation includes the complete licenses for every bundled style an
     rmSync(outputRoot, { recursive: true, force: true });
   }
 });
+
+test('SVG cover conversion preserves letter spacing instead of collapsing subtitle tracking', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'prepare-epub-tracking-'));
+  try {
+    mkdirSync(join(root, 'assets/fonts'), { recursive: true });
+    copyFileSync('assets/fonts/latinmodernmath.woff2', join(root, 'assets/fonts/latinmodernmath.woff2'));
+    for (const spacing of [0, 8]) {
+      writeFileSync(join(root, `assets/spacing-${spacing}.svg`), `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="100"><text x="10" y="70" font-family="Noto Sans JP" font-size="40" letter-spacing="${spacing}">ABCD</text></svg>`);
+    }
+    await prepareEpub({ root, source: { entry: [0, 8].map(spacing => ({rel: 'cover', imageSrc: `assets/spacing-${spacing}.svg`})) } });
+    const widths = [];
+    for (const index of [0, 1]) {
+      const image = await loadImage(readFileSync(join(root, epubAssetDirectory, `cover-${index}.png`)));
+      const context = createCanvas(image.width, image.height).getContext('2d');
+      context.drawImage(image, 0, 0);
+      const pixels = context.getImageData(0, 0, image.width, image.height).data;
+      let left = image.width, right = 0;
+      for (let y = 0; y < image.height; y++) for (let x = 0; x < image.width; x++) {
+        if (pixels[(y * image.width + x) * 4 + 3] > 0) {left = Math.min(left, x); right = Math.max(right, x);}
+      }
+      widths.push(right - left);
+    }
+    assert.ok(widths[0] > 50);
+    assert.ok(widths[1] - widths[0] >= 22, `Expected 8px spacing across 3 gaps, got widths ${widths}`);
+  } finally { rmSync(root, {recursive: true, force: true}); }
+});
