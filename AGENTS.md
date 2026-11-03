@@ -72,4 +72,4 @@ flowchart TD
 
 ## ソースコードを変更するとき
 
-[`DEVELOPMENT.md`](DEVELOPMENT.md) の lint 環境を有効にして `npm run lint:code` と `npm test` を実行し、同ガイドのビルド・描画検証も確認する。厳格な lint は `scripts/` の実装・既存テストの JavaScript とシェルだけを対象にする。ルート設定・CSS・原稿・コード例・素材・生成物へ対象を広げない。原稿校正の `npm run lint` は別に維持する。
+[`DEVELOPMENT.md`](DEVELOPMENT.md) に従って uv を準備し `npm run lint:code` と `npm test` を実行し、同ガイドのビルド・描画検証も確認する。厳格な lint は `scripts/` の実装・既存テストの JavaScript とシェルだけを対象にする。ルート設定・CSS・原稿・コード例・素材・生成物へ対象を広げない。原稿校正の `npm run lint` は別に維持する。

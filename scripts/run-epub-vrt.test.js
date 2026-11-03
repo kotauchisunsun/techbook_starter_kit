@@ -29,6 +29,9 @@ test('each source builds independently, both use head readers, and successful co
   const renders = calls.filter(c => c.args[0]?.startsWith('scripts/render-epub'));
   assert.equal(renders.length, 6);
   assert(renders.every(c => c.cwd === options.current));
+  const mupdf = renders.filter(c => c.args[0] === 'scripts/render-epub-mupdf.py');
+  assert.equal(mupdf.length, 2);
+  assert(mupdf.every(c => c.command === (process.env.EPUB_VRT_PYTHON || 'python')));
 });
 test('nonzero renderer exit cannot pass even with a complete report and successful comparison', t => {
   const options = fixture(t);
@@ -61,4 +64,15 @@ test('successful build without an EPUB cannot reuse a stale archive', t => {
   const report = runEpubVrt({...options, run: () => ({status: 0})});
   assert(report.errors.some(e => /Baseline build produced no nonempty EPUB/.test(e.reason)));
   assert.equal(existsSync(join(options.baseline, 'output/epub/book.epub')), false);
+});
+
+test('both MuPDF comparisons honor an explicitly selected Python interpreter', t => {
+  const options = fixture(t), calls = [];
+  const python = join(options.current, 'environment with spaces', 'python');
+  const report = runEpubVrt({...options, python, run: (command, args, cwd) => {
+    calls.push({command, args});
+    return options.success(command, args, cwd);
+  }});
+  assert.deepEqual(report.errors, []);
+  assert.equal(calls.filter(c => c.command === python).length, 2);
 });
