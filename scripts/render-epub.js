@@ -116,12 +116,14 @@ export async function serveReader(input, dependencies = {}) {
 }
 
 // Runs inside the test browser. No scripts from the EPUB are enabled.
-async function initializeReader({ width, height }) {
+export async function initializeReader({ width, height }) {
   const timeout = (promise, label) => new Promise((resolvePromise, reject) => {
     const timer = setTimeout(() => reject(new Error(`${label} timed out`)), 30000);
     Promise.resolve(promise).then(value => { clearTimeout(timer); resolvePromise(value); }, error => { clearTimeout(timer); reject(error); });
   });
-  const book = window.ePub('/book.epub', { replacements: 'blobUrl' });
+  // Use EPUB.js's supported data-URL replacements so each archived resource
+  // remains self-contained across both Chromium and WebKit.
+  const book = window.ePub('/book.epub', { replacements: 'base64' });
   await timeout(book.ready, 'Opening EPUB');
   const reader = document.getElementById('reader');
   reader.style.width = `${width}px`; reader.style.height = `${height}px`;
@@ -221,6 +223,8 @@ async function snapshotReader({ overflowSource, highlightSource, contrastSource 
       bodyFont: { computedFamily: style.fontFamily, size: style.fontSize,
         faces: [...doc.fonts].map(face => ({ family: face.family, status: face.status, weight: face.weight })),
         glyphFontVerified: false } };
+    const failedFonts = info.bodyFont.faces.filter(face => face.status === 'error');
+    if (failedFonts.length) diagnostics.push({ type: 'font-load-error', spineIndex: contents.sectionIndex, fonts: failedFonts });
     for (const caption of doc.querySelectorAll('figcaption, .epub-caption')) {
       const figure = caption.closest('figure, .epub-figure');
       const image = figure?.querySelector('img,svg');

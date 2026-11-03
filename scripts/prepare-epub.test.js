@@ -126,18 +126,19 @@ test('EPUB preparation bundles portable token styles with every referenced body 
       assert(statSync(resolve(generated, fontPath)).isFile(), fontPath);
     }
     assert.match(bundle, /\.token\.keyword/);
-    assert.match(bundle, /url\('\.\/NotoSansMono-Regular\.ttf'\)/);
+    assert.match(bundle, /url\('NotoSansMono-Regular\.ttf'\)/);
     assert.match(bundle, /font-family: 'Noto Sans Mono'/);
     const css = readFileSync('epub.css', 'utf8');
     assert.match(css, /@import ['"]\.\/assets\/epub-generated\/prism-okaidia\.css['"]/);
     assert.match(css, /url\(['"]\.\/assets\/epub-generated\/NotoSansMono-Regular\.ttf['"]\)/);
     assert.match(css, /font-family:\s*['"]Noto Sans Mono['"],\s*['"]Noto Sans JP['"],\s*monospace/);
-    for (const weight of ['Regular', 'Bold']) assert(bundle.includes(`url('./NotoSansJP-${weight}.ttf')`));
+    for (const weight of ['Regular', 'Bold']) assert(bundle.includes(`url('NotoSansJP-${weight}.ttf')`));
+    assert.doesNotMatch(bundle, /url\(['"]?\.\//);
     assert.match(bundle, /body\s*\{[^}]*font-family: 'Noto Sans JP', sans-serif/);
     assert.match(bundle, /code\.epub-inline-code\s*\{[^}]*background-color: #ecf0f1;[^}]*color: #34495e;/);
     assert.match(bundle, /\.epub-caption\s*\{[^}]*text-align: center;[^}]*break-before: avoid;/);
     assert.match(bundle, /\.epub-figure\s*\{[^}]*break-inside: avoid;/);
-    assert.match(bundle, /max-height: min\(135mm, 60vh\)/);
+    assert.match(bundle, /max-height: min\(135mm, 60vh\) !important/);
     assert.match(bundle, /table\s*\{[^}]*margin: 1em auto;[^}]*border-top: 1px solid;/);
     assert.match(bundle, /pre\s*\{[^}]*background-color: #272822;/);
     assert.match(bundle, /pre code\s*\{[^}]*background-color: transparent;/);

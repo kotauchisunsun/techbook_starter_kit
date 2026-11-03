@@ -48,7 +48,9 @@ export async function prepareEpub({ root = sourceRoot, outputRoot = root, source
   // Publish one stylesheet, with every font URL relative to that stylesheet.
   const bodyCss = (await readFile(join(sourceRoot, 'epub.css'), 'utf8'))
     .replace(/^@import[^;]+;\s*/gm, '')
-    .replaceAll('./assets/epub-generated/', './');
+    // EPUB.js substitutes resource filenames literally; a leading ./ would
+    // survive as ./blob:... or ./data:... and break embedded font loading.
+    .replaceAll('./assets/epub-generated/', '');
   await writeFile(join(target, 'epub.css'), `${codeCss}\n${bodyCss}`);
   const fontRoot = join(dirname(require.resolve('@mitsuharu/vivliostyle-theme-noto-sans-jp/package.json')), 'fonts');
   const coverFonts = ['Regular', 'Bold'].map(weight => join(fontRoot, `Noto_Sans_JP/static/NotoSansJP-${weight}.ttf`));

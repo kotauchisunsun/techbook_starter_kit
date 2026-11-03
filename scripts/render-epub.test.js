@@ -3,7 +3,23 @@ import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { captureSpine, contrastRatio, launchReaderBrowser, locationKey, missingTokenColors, overflowingFragments, parseArguments, reportFailed, serveReader } from './render-epub.js';
+import { captureSpine, contrastRatio, initializeReader, launchReaderBrowser, locationKey, missingTokenColors, overflowingFragments, parseArguments, reportFailed, serveReader } from './render-epub.js';
+
+test('reader opens the actual archive with self-contained resources in both browser engines', async () => {
+  const previousWindow = globalThis.window;
+  let requested;
+  globalThis.window = { ePub: (input, options) => {
+    requested = { input, options };
+    return { ready: Promise.reject(new Error('Stop before DOM setup')) };
+  } };
+  try {
+    await assert.rejects(initializeReader({ width: 600, height: 780 }), /Stop before DOM setup/);
+    assert.deepEqual(requested, { input: '/book.epub', options: { replacements: 'base64' } });
+  } finally {
+    if (previousWindow === undefined) delete globalThis.window;
+    else globalThis.window = previousWindow;
+  }
+});
 
 test('EPUB renderer defaults to desktop/mobile and validates arguments', () => {
   const options = parseArguments(['book.epub', 'output']);
@@ -71,7 +87,7 @@ test('overflow detection handles separate column fragments without treating chap
 test('strict reports fail for missing images and overflowing math/code; baseline still fails runtime errors', () => {
   const report = { complete: true, baseline: false, errors: [], viewports: [{ pages: [{ diagnostics: [] }] }] };
   assert.equal(reportFailed(report), false);
-  for (const type of ['missing-image', 'code-overflow', 'math-overflow', 'unhighlighted-code']) {
+  for (const type of ['missing-image', 'code-overflow', 'math-overflow', 'unhighlighted-code', 'font-load-error']) {
     report.viewports[0].pages[0].diagnostics = [{ type }];
     assert.equal(reportFailed(report), true, type);
     assert.equal(reportFailed({ ...report, baseline: true }), false, type);
