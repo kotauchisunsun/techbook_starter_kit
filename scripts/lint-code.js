@@ -39,7 +39,7 @@ export function lintCode(root = repositoryRoot) {
   for (const [index, [command, args]] of commands.entries()) {
     if (Object.values(files)[index].length === 0) continue;
     const result = spawnSync(command, args, { cwd: root, stdio: 'inherit' });
-    if (result.error) console.error(`${command}: ${result.error.message}. Install requirements-lint.txt and activate its virtual environment (see README).`);
+    if (result.error) console.error(`${command}: ${result.error.message}. Install requirements-lint.txt and activate its virtual environment (see DEVELOPMENT.md).`);
     if (result.error || result.status !== 0) failed = true;
   }
   return failed ? 1 : 0;

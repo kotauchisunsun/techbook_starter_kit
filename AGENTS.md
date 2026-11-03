@@ -72,4 +72,4 @@ flowchart TD
 
 ## ソースコードを変更するとき
 
-`README.md` の lint 専用環境を有効にして `npm run lint:system` と `npm run test:lint`、`npm test` を実行する。原稿校正の `npm run lint` は別に維持する。本文・文書内のコード例・素材・生成物をシステム lint の対象へ追加しない。
+[`DEVELOPMENT.md`](DEVELOPMENT.md) の lint 専用環境を有効にして `npm run lint:system` と `npm run test:lint`、`npm test` を実行する。原稿校正の `npm run lint` は別に維持する。本文・文書内のコード例・素材・生成物をシステム lint の対象へ追加しない。
