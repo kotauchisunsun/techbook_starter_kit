@@ -4,7 +4,7 @@ on:
   schedule:
     # Avoid the start-of-hour peak. Cleanup uses only default-branch code.
     - cron: '17 * * * *'
-  workflow_dispatch:
+  workflow_dispatch: {}
 
 permissions:
   actions: write

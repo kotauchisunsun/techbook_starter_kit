@@ -88,7 +88,7 @@ test('release prepares exactly two PDFs and an EPUB with the same JST timestamp 
 });
 
 test('main-only release policy, tested build dependency and existing manual PDF artifact are preserved', () => {
-  assert.deepEqual(build.on, {push: {branches: ['main']}, workflow_dispatch: null});
+  assert.deepEqual(build.on, {push: {branches: ['main']}, workflow_dispatch: {}});
   assert.equal(build.jobs.build.needs, 'test');
   assert.deepEqual(build.permissions, {contents: 'read'});
   assert.deepEqual(build.jobs.build.permissions, {contents: 'write'});
@@ -115,7 +115,7 @@ test('main-only release policy, tested build dependency and existing manual PDF 
 });
 
 test('PR EPUB retains direct downloads and read-only build permissions without adding release privileges', () => {
-  assert.deepEqual(pr.on, {pull_request: null});
+  assert.deepEqual(pr.on, {pull_request: {}});
   assert.deepEqual(pr.permissions, {contents: 'read'});
   assert.deepEqual(pr.jobs.build.permissions, {contents: 'read', actions: 'read'});
   assert.equal(pr.jobs['docker-build'].permissions, undefined);

@@ -38,7 +38,7 @@ test('ESLint checks undefined variables and unused bindings in maintained source
   }
 });
 
-test('CI enforces source lint separately from the unchanged manuscript lint', () => {
+test('CI enforces system lint separately from the unchanged manuscript lint', () => {
   const pkg = JSON.parse(readFileSync(join(repositoryRoot, 'package.json'), 'utf8'));
   assert.equal(pkg.scripts.lint, 'textlint "manuscript/**/*.md"');
   assert.equal(pkg.scripts['lint:code'], 'node scripts/lint-code.js');
@@ -46,7 +46,7 @@ test('CI enforces source lint separately from the unchanged manuscript lint', ()
     const workflow = readFileSync(join(repositoryRoot, `.github/workflows/${name}.yml`), 'utf8');
     const testJob = workflow.split('  test:')[1].split('  build:')[0];
     assert.match(testJob, /pip install -r requirements-lint.txt/);
-    assert.match(testJob, /- run: npm run lint:code/);
+    assert.match(testJob, /- run: npm run lint:system/);
     assert.match(testJob, /- run: npm run test:lint/);
     assert.doesNotMatch(testJob, /continue-on-error|\|\| true/);
   }

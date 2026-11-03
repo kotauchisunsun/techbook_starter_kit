@@ -23,9 +23,9 @@ npm run check:pdf
 
 Docker を使う場合は、WSL または Linux で `npm run build:docker` を実行します。通常版と印刷版の PDF を `output/pdf/`、EPUB を `output/epub/` に生成し、両形式を検証します。ローカルで全形式をまとめて作る場合は `npm run build:all` を実行します。印刷用 PDF のツールも必要です。
 
-## ソースコードを検査する
+## システム全体を検査する
 
-原稿校正の `npm run lint` とは別に、開発用の `npm run lint:code` を用意しています。JavaScript は ESLint の推奨ルール、シェルスクリプトは ShellCheck で検査します。整形は行いません。保守中の ESLint 10 に合わせて、最小 Node.js を 22.12 から 22.13 に更新しています（CI は引き続き Node.js 24）。
+原稿校正の `npm run lint` とは別に、`npm run lint:system` で出版システムを検査します。本文や文章の内容によって CI が失敗しないよう、原稿・文書・コード例・表紙などの素材は対象にしません。整形や自動修正は行いません。
 
 `npm ci` に加えて、Python 3.10 以上で lint 専用の環境を一度作成します。ShellCheck の配布パッケージは `requirements-lint.txt` で固定しています。PDF・EPUB のビルドだけなら、この追加環境は不要です。
 
@@ -35,7 +35,7 @@ Linux / macOS / WSL:
 python3 -m venv .venv-lint
 . .venv-lint/bin/activate
 python -m pip install -r requirements-lint.txt
-npm run lint:code
+npm run lint:system
 npm run test:lint
 ```
 
@@ -45,15 +45,30 @@ Windows PowerShell:
 py -3 -m venv .venv-lint
 .\.venv-lint\Scripts\Activate.ps1
 python -m pip install -r requirements-lint.txt
-npm run lint:code
+npm run lint:system
 npm run test:lint
 ```
 
 次回も同じ仮想環境を有効にして実行してください。`shellcheck` を PATH から呼び出すため、未導入・未有効の場合も検査をスキップせず失敗します。PowerShell の設定で有効化が禁止されている場合は、設定を変更せず WSL で上の手順を使用できます。
 
-対象はルート直下の JavaScript 設定ファイル（`.js` / `.mjs` / `.cjs`）と、`scripts/` 以下の同拡張子・`.sh` の実装とテストです。新しい対象ファイルは自動で含まれます。`node_modules/`、`output/`、`.vivliostyle/`、`assets/`（`assets/epub-generated/` を含む）、`tmp/`、仮想環境・キャッシュは除外します。シンボリックリンクはたどりません。Python、Markdown、原稿中のコード例、CSS、JSON、YAML、SVG、およびワークフロー内の埋め込みコードはこの段階では対象外です。Python の EPUB レンダラーと描画テストは維持し、Ruff は導入しません。リポジトリ全体の lint は後続タスクで扱います。
+対象はルート直下の設定・スタイル・コードと、`scripts/`・`.github/` 以下のシステム用ファイルです。対象ディレクトリ内の新しいファイルは、次の拡張子なら自動で含まれます。
 
-PR と main の CI では `lint:code` と `test:lint` の失敗をエラーにします。`npm test` は Node.js の回帰テスト、`npm run test:lint` は実際の二つの linter に正常・異常ソースと除外対象のファイルを渡す回帰テストです。後者のログには意図的に発生させたエラーが表示されますが、テスト自体の成功・失敗で判定してください。原稿校正のコマンドと PR での報告方法は変更していません。
+- `.js` / `.mjs` / `.cjs`: ESLint の推奨ルール。
+- `.json`: ESLint の公式 `@eslint/json` で構文・重複キーなどを検査。
+- `.yaml` / `.yml`: `eslint-plugin-yml` の推奨ルールで構文・空の値などを検査。GitHub Actions の `on` は YAML 1.2 のキーとして扱います。
+- `.css`: 公式 `@eslint/css` で構文・プロパティ・値などを検査。Vivliostyle の脚注構文を許可します。印刷・EPUB 互換のため、ブラウザー Baseline と `!important` の制限は適用しません。
+- `.sh`: 既存の ShellCheck で検査。
+- `.py`: 既存の Python 環境の `ast.parse` で構文だけを確認。コードの import・実行やキャッシュ作成はしません。Ruff は使いません。意味解析やスタイルの検査ではなく、EPUB レンダラーと描画テストは引き続き別途実行します。
+
+`.github/workflows/` の `run`（bash/sh）と `actions/github-script` の `with.script` も抽出して検査します。前者は ShellCheck、後者は ESLint を使い、スクリプト自体は実行しません。GitHub の `${{ ... }}` は仮の文字列に置き換えます。ログはワークフロー名とジョブ・ステップを示します。JS の行番号は抽出したコードにラッパーの 1 行を加えた番号です。
+
+この検査は GitHub Actions のスキーマ・式・権限・参照先の正しさを検証するものではありません。bash/sh 以外の埋め込み言語はスキップを表示します。複合アクション内のコード、コマンド内で生成するコード、他のアクションに渡すスクリプトは抽出しません。動的な shell 指定も解決しません。これらと PDF・EPUB の動作は、既存のテストとビルドで確認します。
+
+`manuscript/`、README・AGENTS を含む Markdown、`scripts/fixtures/`、`assets/` は対象外です。`node_modules/`、`output/`、`.vivliostyle/`、`tmp/`、`release/`、仮想環境・キャッシュ・Git 管理データも除外し、シンボリックリンクはたどりません。生成される `package-lock.json` は npm ci で整合性を確認します。依存リストの `requirements-lint.txt` は pip のインストールで検証します。SVG・画像・フォントなどの素材や、上記以外の拡張子は言語 lint の対象外です。新しいシステム用ディレクトリや言語を追加する場合は、対象と設定も更新してください。
+
+PR と main の CI では `lint:system` と `test:lint` の失敗をエラーにします。`npm test` は Node.js の回帰テストです。`test:lint` は実際の検査に正常・異常ファイルと除外対象を渡し、本文に依存しないことも確認します。ログには意図的なエラーが出るため、テスト自体の成功・失敗で判定してください。
+
+既存の `lint:code` はルートの JavaScript と `scripts/` 内の JavaScript・シェルだけを検査するコマンドとして残します。原稿校正の `npm run lint` は任意の別コマンドのままです。PR の原稿校正コメントも従来どおりで、原稿の指摘を必須の CI ゲートにはしません。
 
 ## 原稿・画像・表紙を編集する
 

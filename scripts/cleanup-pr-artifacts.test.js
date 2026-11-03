@@ -63,7 +63,7 @@ function fixture({artifacts = [], state = 'closed', prResponse, listStatus, pull
 
 test('cleanup uses scheduled/default-branch API-only execution with unchanged permissions', () => {
   assert.equal(workflow.split('on:\n')[1].split('\npermissions:')[0],
-    "  schedule:\n    # Avoid the start-of-hour peak. Cleanup uses only default-branch code.\n    - cron: '17 * * * *'\n  workflow_dispatch:\n");
+    "  schedule:\n    # Avoid the start-of-hour peak. Cleanup uses only default-branch code.\n    - cron: '17 * * * *'\n  workflow_dispatch: {}\n");
   assert.equal(workflow.split('permissions:\n')[1].split('\njobs:')[0],
     '  actions: write\n  pull-requests: read\n');
   assert.match(workflow, /if: github.ref == format\('refs\/heads\/\{0\}', github.event.repository.default_branch\)/);
