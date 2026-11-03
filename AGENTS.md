@@ -69,3 +69,7 @@ flowchart TD
 3. `npm run build` で参照切れやページからのはみ出しがないか確認する。印刷用 PDF を作る場合は、グレースケールで図が読めるかも確認する。EPUB ではリーダーの文字サイズや画面幅を変えて画像や表の表示を確認する。
 
 生成物の `output/` と `.vivliostyle/`、依存関係の `node_modules/` は編集・コミットしない。
+
+## ソースコードを変更するとき
+
+[`DEVELOPMENT.md`](DEVELOPMENT.md) のテスト・ビルド・描画検証を実行する。原稿校正の `npm run lint` は別に維持する。
