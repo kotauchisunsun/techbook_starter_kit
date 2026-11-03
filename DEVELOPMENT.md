@@ -1,6 +1,6 @@
 # 開発・検証ガイド
 
-テンプレート本体の設定・スクリプト・CI を変更する人向けのガイドです。本を作るための最小手順は [`README.md`](README.md)、執筆手順は [`AGENTS.md`](AGENTS.md) を参照してください。原稿の編集だけなら、以下の追加の描画ツールは不要です。
+テンプレート本体の設定・スクリプト・CI を変更する人向けのガイドです。本を作るための最小手順は [`README.md`](README.md)、執筆手順は [`AGENTS.md`](AGENTS.md) を参照してください。原稿の編集だけなら lint 専用環境や追加の描画ツールは不要です。
 
 ## テンプレート本体を変更する
 
@@ -14,6 +14,38 @@ npm run check:epub
 ```
 
 `npm run lint` は原稿の日本語校正です。コードブロック（Mermaid を含む）とブロック数式は対象外で、出版システムのコードを検査するコマンドではありません。
+
+## scripts のコードを検査する
+
+`npm run lint:code` は `scripts/` 配下の実装コードだけを検査します。JavaScript は ESLint、シェルは ShellCheck を使います。独自のファイル探索やワークフロー解析は行いません。自動整形・修正もしません。
+
+`npm ci` に加えて、Python 3.10 以上で ShellCheck 用の環境を一度作ります。配布パッケージは `requirements-lint.txt` で固定しています。PDF・EPUB のビルドだけなら、この追加環境は不要です。
+
+Linux / macOS / WSL:
+
+```sh
+python3 -m venv .venv-lint
+. .venv-lint/bin/activate
+python -m pip install -r requirements-lint.txt
+npm run lint:code
+```
+
+Windows PowerShell:
+
+```powershell
+py -3 -m venv .venv-lint
+.\.venv-lint\Scripts\Activate.ps1
+python -m pip install -r requirements-lint.txt
+npm run lint:code
+```
+
+次回も同じ環境を有効にします。ShellCheck が未導入なら検査は失敗します。PowerShell の有効化が禁止されている場合は設定を変更せず WSL を使えます。
+
+- `lint:js`: ESLint が `scripts/` の `.js` / `.mjs` / `.cjs` を検査します。この段階では `*.test.js`・`*.integration.js` と同じ命名の MJS/CJS を除外し、既存テストコードの lint は後続 #44 で追加します。`scripts/fixtures/` の例と、`scripts/` 内の依存関係・生成物は除外します。
+- `lint:shell`: `scripts/setup.sh` と `scripts/render-pdf-pages.sh` を ShellCheck に直接渡します。シェルを追加したら、このコマンドの対象にも追加してください。Windows でもワイルドカード展開に依存しません。
+- ルートの設定 JS・CSS、JSON・YAML、CI 内の埋め込みコード、Python は対象外です。原稿・文書・コード例・素材・生成物も対象にしません。Ruff は不要です。
+
+PR と main の CI で `lint:code` を実行します。ビルド・EPUB 描画・既存回帰テストは別に維持します。原稿校正の `npm run lint` は任意の別機能です。
 
 ## EPUB の生成と表示を確認する
 

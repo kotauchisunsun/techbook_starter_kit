@@ -1,0 +1,2 @@
+# Development-only tools; publication builds do not need these packages.
+shellcheck-py==0.11.0.1
