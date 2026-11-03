@@ -144,11 +144,28 @@ test('EPUB preparation bundles code and MathML styles with every referenced font
 });
 
 test('EPUB license XHTML escapes headings and full license text safely', () => {
-  const xhtml = renderLicenses([{ name: 'A & <B> "C"', text: "<script>bad & 'quoted'</script>\nOriginal line." }]);
-  assert.match(xhtml, /<html xmlns="http:\/\/www.w3.org\/1999\/xhtml"/);
-  assert(xhtml.includes('<h2>A &amp; &lt;B&gt; &quot;C&quot;</h2>'));
-  assert(xhtml.includes('<pre>&lt;script&gt;bad &amp; &apos;quoted&apos;&lt;/script&gt;\nOriginal line.</pre>'));
-  assert.doesNotMatch(xhtml, /<script>|<B>/);
+  // Compare the complete document rather than trying to blacklist HTML tags.
+  // Keep expected encodings literal, independent of the production escape code.
+  const cases = [
+    ['A & <B> "C" \'D\'', 'A &amp; &lt;B&gt; &quot;C&quot; &apos;D&apos;'],
+    ['<script>bad</script>', '&lt;script&gt;bad&lt;/script&gt;'],
+    ['<SCRIPT>bad</SCRIPT>', '&lt;SCRIPT&gt;bad&lt;/SCRIPT&gt;'],
+    ['<ScRiPt type="text/javascript">bad</ScRiPt>', '&lt;ScRiPt type=&quot;text/javascript&quot;&gt;bad&lt;/ScRiPt&gt;'],
+    ["<script\nsrc='file.js'>bad</script foo='bar'>", '&lt;script\nsrc=&apos;file.js&apos;&gt;bad&lt;/script foo=&apos;bar&apos;&gt;'],
+    ['</pre></section><img src=x onerror="bad">', '&lt;/pre&gt;&lt;/section&gt;&lt;img src=x onerror=&quot;bad&quot;&gt;'],
+    ['&lt;script&gt; &amp;\nOriginal line.', '&amp;lt;script&amp;gt; &amp;amp;\nOriginal line.'],
+  ];
+  for (const [input, escaped] of cases) {
+    const xhtml = renderLicenses([{ name: input, text: input }]);
+    assert.equal(xhtml, `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+<head><meta charset="UTF-8"/><title>Third-party licenses</title>
+<style>pre { white-space: pre-wrap; overflow-wrap: anywhere; }</style></head>
+<body><h1>Third-party licenses</h1>
+<section><h2>${escaped}</h2><pre>${escaped}</pre></section>
+</body></html>\n`, input);
+  }
 });
 
 test('EPUB preparation includes the complete licenses for every bundled style and font', async () => {
