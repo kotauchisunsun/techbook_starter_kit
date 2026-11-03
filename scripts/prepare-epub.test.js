@@ -126,6 +126,12 @@ test('EPUB preparation bundles code and MathML styles with every referenced font
       const [, fontPath] = fontFace.match(/url\(['"]?([^)'"\s]+)['"]?\)/);
       assert(statSync(resolve(generated, fontPath)).isFile(), fontPath);
     }
+    const bundle = readFileSync(join(generated, 'epub.css'), 'utf8');
+    assert.doesNotMatch(bundle, /@import/);
+    assert.match(bundle, /\.token\.keyword/);
+    assert.match(bundle, /\.tml-right/);
+    assert.match(bundle, /url\('\.\/NotoSansMono-Regular\.ttf'\)/);
+    assert.match(bundle, /font-family: 'Noto Sans Mono'/);
     const css = readFileSync('epub.css', 'utf8');
     assert.match(css, /@import ['"]\.\/assets\/epub-generated\/prism-okaidia\.css['"]/);
     assert.match(css, /@import ['"]\.\/assets\/epub-generated\/temml\.css['"]/);

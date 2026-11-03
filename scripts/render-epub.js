@@ -179,7 +179,10 @@ async function snapshotReader({ overflowSource, highlightSource }) {
     const style = contents.window.getComputedStyle(doc.body);
     const bodyRect = doc.body.getBoundingClientRect();
     const gap = parseFloat(style.columnGap) || 0;
-    const columnWidth = parseFloat(style.columnWidth) || doc.body.clientWidth - parseFloat(style.paddingLeft || 0) - parseFloat(style.paddingRight || 0);
+    // CSS column-width is a preferred width. EPUB.js also applies border-box
+    // padding, so the used column width can be smaller than that CSS value.
+    const availableWidth = doc.body.clientWidth - parseFloat(style.paddingLeft || 0) - parseFloat(style.paddingRight || 0);
+    const columnWidth = Math.min(parseFloat(style.columnWidth) || availableWidth, availableWidth);
     const geometry = { origin: bodyRect.left + parseFloat(style.paddingLeft || 0), columnWidth, stride: columnWidth + gap };
     const frameRect = contents.window.frameElement.getBoundingClientRect();
     const rectData = rect => ({ left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height });

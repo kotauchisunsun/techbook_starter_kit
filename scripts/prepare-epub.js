@@ -40,6 +40,13 @@ export async function prepareEpub({ root = sourceRoot, outputRoot = root, source
     .replace(/url\("data:image\/svg\+xml,([^"\n]*)"\)/g,
       (_, svg) => `url("data:image/svg+xml,${encodeURIComponent(decodeURIComponent(svg))}")`);
   await writeFile(join(target, 'temml.css'), mathCss);
+  // EPUB.js and other ZIP readers cannot reliably resolve nested @import URLs.
+  // Publish one stylesheet, with every font URL relative to that stylesheet.
+  const bodyCss = (await readFile(join(sourceRoot, 'epub.css'), 'utf8'))
+    .replace(/^@import[^;]+;\s*/gm, '')
+    .replaceAll('./assets/epub-generated/', './');
+  const codeCss = await readFile(require.resolve('prismjs/themes/prism-okaidia.css'), 'utf8');
+  await writeFile(join(target, 'epub.css'), `${codeCss}\n${mathCss}\n${bodyCss}`);
   await copy(require.resolve('temml/dist/Temml.woff2'), 'Temml.woff2');
   await copy(join(root, 'assets/fonts/latinmodernmath.woff2'), 'latinmodernmath.woff2');
   const fontRoot = join(dirname(require.resolve('@mitsuharu/vivliostyle-theme-noto-sans-jp/package.json')), 'fonts');

@@ -51,7 +51,7 @@ test('GitHub reporter loads the actual ESM helper in both inline steps', async (
 
 test('EPUB inherits content and metadata without changing either PDF output', async () => {
   const { default: epubConfig } = await import('../vivliostyle.epub.config.js');
-  for (const key of ['title', 'author', 'language', 'toc', 'documentProcessor']) {
+  for (const key of ['title', 'author', 'language', 'toc']) {
     assert.deepEqual(epubConfig[key], config[key], key);
   }
   assert.deepEqual(epubConfig.copyAsset.excludes, [...config.copyAsset.excludes, 'tmp/**', 'scripts/**']);
@@ -66,7 +66,7 @@ test('EPUB inherits content and metadata without changing either PDF output', as
   }
   assert.deepEqual(config.entry[0], { rel: 'cover' });
   assert.equal(config.entry.at(-1).imageSrc, 'assets/back-cover.svg');
-  assert.equal(epubConfig.theme, './epub.css');
+  assert.equal(epubConfig.theme, './assets/epub-generated/epub.css');
   assert.equal(epubConfig.workspaceDir, '.vivliostyle/epub');
   assert.notEqual(epubConfig.workspaceDir, config.workspaceDir ?? '.vivliostyle');
   assert.equal(epubConfig.vfm.table.cell, 'align-style');

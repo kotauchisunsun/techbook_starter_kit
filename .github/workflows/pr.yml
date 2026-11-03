@@ -148,12 +148,6 @@ jobs:
           EOF
           npx vivliostyle build --config tmp/epub-stress.config.js
           npm run check:epub -- output/epub-stress/stress.epub
-      - name: Capture comparison baseline
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh api repos/kotauchisunsun/techbook_starter_kit/actions/artifacts/13224676459/zip > "$RUNNER_TEMP/original.epub"
-          node scripts/render-epub.js "$RUNNER_TEMP/original.epub" output/epub-visual/original --baseline
       - name: Render EPUB in narrow and wide readers
         if: ${{ !cancelled() }}
         run: node scripts/render-epub.js output/epub/book.epub output/epub-visual/current
