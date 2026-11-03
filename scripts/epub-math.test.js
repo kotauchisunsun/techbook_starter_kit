@@ -2,111 +2,91 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { VFM } from '@vivliostyle/vfm';
-import baseProcessor from './mermaid.js';
 import epubMath from './epub-math.js';
 
-const text = node => node.type === 'text' ? node.value : (node.children ?? []).map(text).join('');
-const elements = node => (node.children ?? []).filter(child => child.type === 'element');
-const collect = (node, tag) => [...(node.tagName === tag ? [node] : []), ...(node.children ?? []).flatMap(child => collect(child, tag))];
-const value = node => text(node).replace(/\s/gu, '');
-const leaf = (tagName, value, properties = {}) => ({ type: 'element', tagName, properties, children: [{ type: 'text', value }] });
-const math = children => ({ type: 'element', tagName: 'math', properties: { display: 'block', className: ['tml-display'], style: 'display:block math;' },
-  children: [{ type: 'text', value: '\n  ' }, { type: 'element', tagName: 'mrow', properties: {}, children }, { type: 'text', value: '\n' }] });
-
-async function render(markdown, options, processor = VFM) {
-  let before;
-  let after;
-  const result = await processor({ mathRenderer: 'mathml', partial: true })
-    .use(() => tree => { before = structuredClone(tree); })
-    .use(epubMath, options)
-    .use(() => tree => { after = tree; })
-    .process(markdown);
-  return { before, after, html: String(result) };
+const collect = (node, predicate) => [...(predicate(node) ? [node] : []), ...(node.children ?? []).flatMap(child => collect(child, predicate))];
+const elements = (tree, tag) => collect(tree, node => node.tagName === tag);
+const wrappers = tree => collect(tree, node => node.properties?.className?.includes('epub-math'));
+async function render(markdown, options = {}, extra = {}) {
+  let tree;
+  const result = await VFM({ mathRenderer: 'mathjax', partial: true, ...extra })
+    .use(epubMath, options).use(() => value => { tree = value; }).process(markdown);
+  return { tree, html: String(result) };
 }
 
-test('actual formatted VFM stress math gains safe break fragments without changing text order', async () => {
-  const fixture = await readFile(new URL('./fixtures/epub-stress.md', import.meta.url), 'utf8');
-  const { before, after, html } = await render(fixture, undefined, baseProcessor);
-  assert.equal(text(after), text(before), 'Includes preservation of all pretty-print whitespace.');
-  const changed = collect(after, 'math').filter(node => node.properties.className?.includes('epub-math-wrap'));
-  assert.equal(changed.length, 1);
-  assert.deepEqual(elements(changed[0]).map(value), 'ABCDEFGHIJKLMNOPQRS'.split('').map(letter => `${letter}+`).concat(['T=', '210']));
-  assert.match(html, /class="tml-display epub-math-wrap"/);
-  assert.equal(changed[0].properties.style, 'display:block math;');
-  for (const row of elements(changed[0]).slice(0, -1)) assert.equal(elements(row).at(-1).properties.form, 'infix');
-  assert.deepEqual(collect(after, 'mtable'), collect(before, 'mtable'));
-});
-
-test('short equations, inline math and already-grouped display math remain unchanged', async () => {
-  for (const markdown of ['$$\nx^2-3x+2=0\n$$', '$A+B+C+D+E+F+G+H+I+J+K+L+M+N+O+P=100$', '$$\n\\begin{aligned}a+b&=c\\\\d+e&=f\\end{aligned}\n$$']) {
-    const { before, after } = await render(markdown);
-    assert.deepEqual(after, before);
+test('inline superscripts become font-independent SVG paths with baseline dimensions and source alternative', async () => {
+  const { tree, html } = await render('二次方程式 $x^2-3x+2=0$ を解きます。');
+  const wrapper = wrappers(tree)[0];
+  assert.equal(wrapper.properties.ariaLabel, 'x^2-3x+2=0');
+  assert.equal(wrapper.properties.role, 'math');
+  assert(wrapper.properties.className.includes('epub-math-inline'));
+  assert(elements(wrapper, 'svg').length > 0);
+  assert(elements(wrapper, 'path').length > 0);
+  for (const svg of elements(wrapper, 'svg')) {
+    assert.match(svg.properties.style, /width:[\d.]+em;height:auto;vertical-align:-?[\d.]+em;/);
+    assert.equal(svg.properties.ariaHidden, 'true');
+    assert(svg.properties.width > 0);
+    const [, , width, height] = String(svg.properties.viewBox).split(' ').map(Number);
+    assert(Math.abs(svg.properties.width - width / 1000 * 64) < 0.00001);
+    assert(Math.abs(svg.properties.height - height / 1000 * 64) < 0.00001);
+    assert(Math.abs(svg.properties.width / svg.properties.height - width / height) < 0.00001);
   }
-  const node = math([leaf('mi', 'a'), leaf('mo', '+'), leaf('mi', 'b')]);
-  node.children.push({ type: 'element', tagName: 'mrow', properties: {}, children: [leaf('mi', 'c')] });
-  const before = structuredClone(node);
-  epubMath({ minimumLength: 1 })(node);
-  assert.deepEqual(node, before);
+  assert.match(html, /data-mml-node="msup"/);
+  assert.doesNotMatch(html, /<math[ >]|<mjx-|<use[ >]|<text[ >]|Temml|MJX-ZERO/);
+  assert.match(html, /二次方程式/);
 });
 
-test('fractions, radicals, superscripts and nested parentheses remain intact', async () => {
-  const { before, after } = await render('$$\n\\frac{a+b}{c-d}+\\sqrt{x+y}+(u+v)^2=z\n$$', { minimumLength: 1 });
-  assert.equal(text(after), text(before));
-  for (const tag of ['mfrac', 'msqrt', 'msup']) assert.deepEqual(collect(after, tag), collect(before, tag), tag);
-  const rows = elements(collect(after, 'math')[0]);
-  assert.equal(rows.length, 4);
-  assert.deepEqual(rows.map(value), ['a+bc−d+', 'x+y+', '(u+v)2=', 'z']);
+test('aligned equations keep four rows in one SVG and do not flatten into text', async () => {
+  const { tree, html } = await render(String.raw`$$
+\begin{aligned}
+x^2-3x+2 &= 0 \\
+x^2-x-2x+2 &= 0 \\
+x(x-1)-2(x-1) &= 0 \\
+(x-1)(x-2) &= 0
+\end{aligned}
+$$`);
+  const wrapper = wrappers(tree)[0];
+  assert(wrapper.properties.className.includes('epub-math-display'));
+  assert.equal(elements(wrapper, 'svg').length, 1);
+  assert.equal((html.match(/data-mml-node="mtr"/g) ?? []).length, 4);
+  assert.match(html, /data-mml-node="mtable"/);
 });
 
-test('direct outer fences protect their contents and unary signs are never break points', () => {
-  const node = math([
-    leaf('mo', '−', { form: 'prefix' }), leaf('mi', 'a'), leaf('mo', '+'),
-    leaf('mo', '('), leaf('mi', 'b'), leaf('mo', '+'), leaf('mi', 'c'), leaf('mo', ')'), leaf('mo', '='),
-    leaf('mo', '−', { form: 'prefix' }), leaf('mi', 'd'),
-  ]);
-  const before = text(node);
-  epubMath({ minimumLength: 1 })(node);
-  assert.equal(text(node), before);
-  assert.deepEqual(elements(node).map(value), ['−a+', '(b+c)=', '−d']);
-  const inferred = math([leaf('mo', '−'), leaf('mi', 'x'), leaf('mo', '+'), leaf('mo', '−'), leaf('mi', 'y'), leaf('mo', '='), leaf('mi', 'z')]);
-  epubMath({ minimumLength: 1 })(inferred);
-  assert.deepEqual(elements(inferred).map(value), ['−x+', '−y=', 'z']);
+test('long display equations use native reflow opportunities between self-contained SVG fragments', async () => {
+  const source = 'A+B+C+D+E+F+G+H+I+J+K+L+M+N+O+P+Q+R+S+T=210';
+  const { tree, html } = await render(`$$\n${source}\n$$`);
+  const wrapper = wrappers(tree)[0];
+  assert.equal(wrapper.properties.ariaLabel, source);
+  assert.equal(elements(wrapper, 'svg').length, 21);
+  assert.equal(wrapper.children.filter(node => node.type === 'text' && node.value === ' ').length, 20);
+  assert.doesNotMatch(html, /<mjx-|font-family|letter-spacing|display:flex/);
 });
 
-test('ambiguous fences, scoped rows and nested aligned tables are untouched', () => {
-  const nodes = [
-    math([leaf('mo', '('), leaf('mi', 'a'), leaf('mo', '+'), leaf('mi', 'b')]),
-    math([leaf('mo', '('), leaf('mi', 'a'), leaf('mo', ']'), leaf('mo', '+'), leaf('mi', 'b')]),
-    math([leaf('mo', '|'), leaf('mi', 'a'), leaf('mo', '+'), leaf('mi', 'b')]),
-    math([leaf('mi', 'a'), leaf('mo', '+'), { type: 'element', tagName: 'mtable', properties: {}, children: [] }]),
-  ];
-  const scoped = math([leaf('mi', 'a'), leaf('mo', '+'), leaf('mi', 'b')]);
-  elements(scoped)[0].properties.id = 'preserve-me';
-  nodes.push(scoped);
-  for (const node of nodes) {
-    const before = structuredClone(node);
-    epubMath({ minimumLength: 1 })(node);
-    assert.deepEqual(node, before);
-  }
+test('fractions, roots and fenced groups stay intact within a fragment', async () => {
+  const { tree, html } = await render(String.raw`$\frac{a+b}{c-d}+\sqrt{x+y}+(u+v)^2=z$`);
+  assert.match(html, /data-mml-node="mfrac"/);
+  assert.match(html, /data-mml-node="msqrt"/);
+  assert.match(html, /data-mml-node="msup"/);
+  const fragments = elements(wrappers(tree)[0], 'svg');
+  assert(fragments.length > 1);
+  assert.equal(fragments.filter(node => collect(node, child => child.properties?.dataMmlNode === 'mfrac').length).length, 1);
 });
 
-test('post-operator glue is retained and explicit no-break glue is respected', () => {
-  const space = { type: 'element', tagName: 'mspace', properties: { width: '0.3em' }, children: [] };
-  const node = math([leaf('mi', 'a'), leaf('mo', '+'), { type: 'text', value: '\n  ' }, space, leaf('mi', 'b'), leaf('mo', '='), leaf('mi', 'c')]);
-  const before = text(node);
-  epubMath({ minimumLength: 1 })(node);
-  assert.equal(text(node), before);
-  assert.equal(elements(elements(node)[0]).at(-1), space);
-  const noBreak = math([leaf('mi', 'a'), leaf('mo', '+'), { ...space, properties: { linebreak: 'nobreak' } }, leaf('mi', 'b'), leaf('mo', '='), leaf('mi', 'c')]);
-  epubMath({ minimumLength: 1 })(noBreak);
-  assert.deepEqual(elements(noBreak).map(value), ['a+b=', 'c']);
+test('removes VFM runtime loader while preserving unrelated scripts', async () => {
+  const { html } = await render('$x^2$\n\n<script src="other.js"></script>', {}, { partial: false });
+  assert.doesNotMatch(html, /cdnjs\.cloudflare\.com|MathJax\.js/);
+  assert.match(html, /src="other.js"/);
 });
 
-test('transformation is idempotent and option validation is explicit', async () => {
-  const { after } = await render('$$\nA+B+C+D+E+F+G+H+I+J+K+L+M+N+O+P+Q+R+S+T=210\n$$');
-  const before = structuredClone(after);
-  epubMath()(after);
-  assert.deepEqual(after, before);
+test('sample manuscript renders all formulas without changing its source', async () => {
+  const source = await readFile(new URL('../manuscript/02_examples.md', import.meta.url), 'utf8');
+  const { tree, html } = await render(source);
+  assert(wrappers(tree).length >= 8);
+  assert.doesNotMatch(html, /<math[ >]|<mjx-|MathJax\.js/);
+  assert.equal(await readFile(new URL('../manuscript/02_examples.md', import.meta.url), 'utf8'), source);
+});
+
+test('invalid formula and invalid options fail instead of silently flattening mathematics', async () => {
+  await assert.rejects(render('$\\frac{a$'));
   assert.throws(() => epubMath({ minimumLength: 0 }), /positive integer/);
-  assert.throws(() => epubMath({ minimumLength: 1.5 }), /positive integer/);
 });

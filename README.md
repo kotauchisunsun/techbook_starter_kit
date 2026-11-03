@@ -42,7 +42,7 @@ npm run build:epub
 npm run check:epub
 ```
 
-出力先は `output/epub/book.epub` です。EPUB のビルドは npm と Playwright で行えます。Mermaid 図の描画には Playwright の Chromium が必要です。メタデータ、章順、表紙・裏表紙は `vivliostyle.config.js`、EPUB の出力設定は `vivliostyle.epub.config.js`、体裁は `epub.css` で調整します。表紙・裏表紙の SVG はビルド時に PNG へ自動変換し、`epub-cover.css` で表示を調整します。数式は MathML に変換し、数式用の Latin Modern Math・Temml 字体、コード用の Noto Sans Mono 字体と配色 CSS を EPUB に同梱します。注釈は章末に表示します。数式のために JavaScript や外部サービスへ接続する必要はありません。
+出力先は `output/epub/book.epub` です。EPUB のビルドは npm と Playwright で行えます。Mermaid 図の描画には Playwright の Chromium が必要です。メタデータ、章順、表紙・裏表紙は `vivliostyle.config.js`、EPUB の出力設定は `vivliostyle.epub.config.js`、体裁は `epub.css` で調整します。表紙・裏表紙の SVG はビルド時に PNG へ自動変換し、`epub-cover.css` で表示を調整します。数式は MathJax の TeX 字体を使った SVG に変換し、上付き文字・分数・根号・複数行の配置を保存します。長い単純な数式は演算子の位置で折り返せます。本文用の Noto Sans JP、コード用の Noto Sans Mono 字体と配色 CSS を EPUB に同梱します。注釈は章末に表示します。数式のために JavaScript や外部サービスへ接続する必要はありません。
 
 検証には公式の [EPUBCheck](https://github.com/w3c/epubcheck) を使います。Ubuntu や WSL では `sudo apt-get install epubcheck` で導入できます。それ以外の環境では公式の配布案内に従い `epubcheck` コマンドを PATH に追加するか、Java をインストールして `EPUBCHECK_JAR` 環境変数に公式 JAR ファイルのパスを設定してください。Windows では Java と `EPUBCHECK_JAR` を利用できます。CI と `build:docker` ではセットアップ時に自動で導入します。
 
@@ -57,3 +57,5 @@ EPUB.js と Playwright で全ページを確認用の画像にするには、次
 ```sh
 npm run check:epub:render -- output/epub/book.epub output/epub-render
 ```
+
+WebKit でも確認する場合は `npx playwright install --with-deps webkit` の後、同じコマンドの末尾に `--browser=webkit` を付けます。MuPDF の EPUB 描画でも確認できます。Python に `PyMuPDF==1.26.6` を導入して `python scripts/render-epub-mupdf.py output/epub/book.epub output/epub-mupdf` を実行すると、全ページの画像と警告・配置情報を出力します。これらは実機の読書アプリそのものの検証ではありません。

@@ -1,12 +1,13 @@
 import config from './vivliostyle.config.js';
 import epubMath from './scripts/epub-math.js';
+import epubLayout from './scripts/epub-layout.js';
 import { epubCoverEntries } from './scripts/epub-assets.js';
 
 const covers = epubCoverEntries(config);
 
 export default {
   ...config,
-  documentProcessor: (options, metadata) => config.documentProcessor(options, metadata).use(epubMath),
+  documentProcessor: (options, metadata) => config.documentProcessor(options, metadata).use(epubMath).use(epubLayout),
   cover: covers[0]?.target ?? config.cover,
   entry: config.entry.map((entry, index) => {
     const cover = covers.find(cover => cover.index === index);
@@ -21,10 +22,10 @@ export default {
     excludes: [...(config.copyAsset?.excludes ?? []), 'tmp/**', 'scripts/**'],
     includeFileExtensions: [...(config.copyAsset?.includeFileExtensions ?? []), 'xhtml'],
   },
-  // EPUB readers should not need JavaScript or an Internet connection for math.
+  // Keep source formulas until epubMath replaces them with offline SVG paths.
   vfm: {
     ...config.vfm,
-    mathRenderer: 'mathml',
+    mathRenderer: 'mathjax',
     footnote: 'pandoc',
     table: { ...config.vfm?.table, cell: 'align-style' },
   },

@@ -71,7 +71,7 @@ test('EPUB inherits content and metadata without changing either PDF output', as
   assert.notEqual(epubConfig.workspaceDir, config.workspaceDir ?? '.vivliostyle');
   assert.equal(epubConfig.vfm.table.cell, 'align-style');
   assert.deepEqual(epubConfig.output, [{ path: 'output/epub/book.epub', format: 'epub' }]);
-  assert.equal(epubConfig.vfm.mathRenderer, 'mathml');
+  assert.equal(epubConfig.vfm.mathRenderer, 'mathjax');
   assert.equal(epubConfig.vfm.footnote, 'pandoc');
   assert.equal(config.vfm?.mathRenderer, undefined);
   assert.equal(config.output[0].format, 'pdf');
@@ -83,14 +83,15 @@ test('EPUB math and footnotes do not require runtime JavaScript or PDF page marg
   const html = String(await epubConfig.documentProcessor(epubConfig.vfm, { title: 'EPUB test', lang: 'ja' }).process(
     '# テスト\n\n$x^2=1$ と注釈[^1]。\n\n$$\n\\frac{1}{2}\n$$\n\n[^1]: 注釈本文。'
   ));
-  assert.match(html, /<math[ >]/);
-  assert.match(html, /<mfrac>/);
+  assert.match(html, /<svg[ >]/);
+  assert.match(html, /data-mml-node="mfrac"/);
+  assert.match(html, /aria-label="x\^2=1"/);
   assert.doesNotMatch(html, /<script|MathJax|data-math-typeset/);
   assert.match(html, /href="#fn1"/);
   assert.match(html, /id="fn1"/);
   assert.match(html, /注釈本文/);
   const css = readFileSync('epub.css', 'utf8');
-  assert.doesNotMatch(css, /@page|display:\s*none|\d+mm/);
+  assert.doesNotMatch(css, /@page|display:\s*none/);
 });
 
 test('all-format and Docker builds include EPUB validation with installed tools', () => {

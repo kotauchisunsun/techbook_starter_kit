@@ -3,17 +3,21 @@ import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { captureSpine, locationKey, missingTokenColors, overflowingFragments, parseArguments, reportFailed, serveReader } from './render-epub.js';
+import { captureSpine, contrastRatio, launchReaderBrowser, locationKey, missingTokenColors, overflowingFragments, parseArguments, reportFailed, serveReader } from './render-epub.js';
 
 test('EPUB renderer defaults to desktop/mobile and validates arguments', () => {
   const options = parseArguments(['book.epub', 'output']);
   assert.deepEqual(options.widths, [600, 360]);
   assert.equal(options.height, 780);
+  assert.equal(options.browser, 'chromium');
+  assert.equal(parseArguments(['book.epub', 'output', '--browser=webkit']).browser, 'webkit');
+  assert.equal(parseArguments(['book.epub', 'output', '--browser=chromium']).browser, 'chromium');
   assert.equal(options.baseline, false);
   assert.deepEqual(parseArguments(['book.epub', 'output', '--widths=360,600,360', '--height=900', '--baseline']).widths, [360, 600]);
   assert.equal(parseArguments(['book.epub', 'output', '--baseline']).baseline, true);
   for (const args of [[], ['book.epub'], ['book.epub', 'output', '--unknown'], ['book.epub', 'output', '--height=0'],
-    ['book.epub', 'output', '--widths=100'], ['book.epub', 'output', '--max-pages=NaN']]) {
+    ['book.epub', 'output', '--widths=100'], ['book.epub', 'output', '--max-pages=NaN'], ['book.epub', 'output', '--browser=firefox'],
+    ['book.epub', 'output', '--browser='], ['book.epub', 'output', '--browser=WebKit']]) {
     assert.throws(() => parseArguments(args));
   }
 });
@@ -130,7 +134,45 @@ test('committed QA harness loads the real EPUB.js reader without scripted book c
   const source = await readFile(new URL('./render-epub.js', import.meta.url), 'utf8');
   assert.match(source, /window\.ePub\('\/book\.epub'/);
   assert.match(source, /allowScriptedContent: false/);
-  assert.match(source, /chromium\.launch\(\{ headless: true \}\)/);
+  assert.match(source, /launchReaderBrowser\(playwright, options\.browser\)/);
+  assert.match(source, /report\.browser = browser\.version\(\)/);
+  assert.match(source, /browserEngine: options\.browser \?\? 'chromium'/);
   assert.match(source, /doc\.fonts\.ready/);
   assert.match(source, /math.*overflow|\$\{kind\}-overflow/);
+});
+
+
+test('browser launch uses the chosen engine and preserves the default for programmatic callers', async () => {
+  const calls = [];
+  const engines = Object.fromEntries(['chromium', 'webkit'].map(engine => [engine, {
+    launch: async options => { calls.push({ engine, options }); return engine; },
+  }]));
+  assert.equal(await launchReaderBrowser(engines), 'chromium');
+  assert.equal(await launchReaderBrowser(engines, 'webkit'), 'webkit');
+  assert.deepEqual(calls, [{ engine: 'chromium', options: { headless: true } }, { engine: 'webkit', options: { headless: true } }]);
+  await assert.rejects(launchReaderBrowser(engines, 'firefox'), /Unsupported browser/);
+  assert.equal(calls.length, 2);
+});
+
+test('contrast probes calculate opaque RGB only and are standalone in the browser', () => {
+  assert.equal(contrastRatio('rgb(0, 0, 0)', 'rgb(255, 255, 255)'), 21);
+  assert.equal(contrastRatio('rgb(40, 42, 54)', 'rgb(40, 42, 54)'), 1);
+  assert.ok(contrastRatio('rgb(248, 248, 242)', 'rgb(39, 40, 34)') > 10);
+  assert.equal(contrastRatio('rgba(0, 0, 0, 1)', 'rgb(255, 255, 255)'), 21);
+  for (const color of ['transparent', 'rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0.5)', 'color(display-p3 1 1 1)', 'rgb(300, 0, 0)']) {
+    assert.equal(contrastRatio(color, 'rgb(255, 255, 255)'), null);
+    assert.equal(contrastRatio('rgb(0, 0, 0)', color), null);
+  }
+  const browserHelper = (0, eval)(`(${contrastRatio.toString()})`);
+  assert.equal(browserHelper('rgb(0, 0, 0)', 'rgb(255, 255, 255)'), 21);
+});
+
+
+test('math probes include path-based SVG equations alongside native MathML', async () => {
+  const source = await readFile(new URL('./render-epub.js', import.meta.url), 'utf8');
+  assert.ok(source.includes(`doc.querySelectorAll('math, [role="math"], .epub-math')`));
+  assert.match(source, /node\.querySelectorAll\('svg'\)/);
+  assert.match(source, /concat\(svgBoxes\)/);
+  assert.match(source, /entry\.svg = svgBoxes/);
+  assert.match(source, /node\.querySelectorAll\('msup,msubsup'\)/);
 });

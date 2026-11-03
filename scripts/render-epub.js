@@ -5,14 +5,15 @@ import { basename, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
-const usage = 'Usage: node scripts/render-epub.js INPUT.epub OUTPUT_DIRECTORY [--baseline] [--widths=600,360] [--height=780] [--max-pages=1000]';
+const usage = 'Usage: node scripts/render-epub.js INPUT.epub OUTPUT_DIRECTORY [--baseline] [--browser=chromium|webkit] [--widths=600,360] [--height=780] [--max-pages=1000]';
 
 export function parseArguments(args) {
   const positional = args.filter(arg => !arg.startsWith('--'));
   if (positional.length !== 2) throw new Error(usage);
-  const options = { input: resolve(positional[0]), output: resolve(positional[1]), widths: [600, 360], height: 780, maxPages: 1000, baseline: false };
+  const options = { input: resolve(positional[0]), output: resolve(positional[1]), widths: [600, 360], height: 780, maxPages: 1000, baseline: false, browser: 'chromium' };
   for (const arg of args.filter(arg => arg.startsWith('--'))) {
     if (arg === '--baseline') options.baseline = true;
+    else if (arg.startsWith('--browser=')) options.browser = arg.slice(10);
     else if (arg.startsWith('--widths=')) options.widths = arg.slice(9).split(',').map(Number);
     else if (arg.startsWith('--height=')) options.height = Number(arg.slice(9));
     else if (arg.startsWith('--max-pages=')) options.maxPages = Number(arg.slice(12));
@@ -23,8 +24,33 @@ export function parseArguments(args) {
       || !Number.isInteger(options.maxPages) || options.maxPages < 1 || options.maxPages > 10000) {
     throw new Error(`Invalid viewport or page limit.\n${usage}`);
   }
+  validateBrowser(options.browser);
   options.widths = [...new Set(options.widths)];
   return options;
+}
+
+export function validateBrowser(name = 'chromium') {
+  if (!['chromium', 'webkit'].includes(name)) throw new Error(`Unsupported browser: ${name}. Use chromium or webkit.`);
+  return name;
+}
+
+export async function launchReaderBrowser(playwright, name = 'chromium') {
+  return playwright[validateBrowser(name)].launch({ headless: true });
+}
+
+// Conservative contrast probe: unknown color spaces/translucency are reported
+// as unavailable rather than guessed. This is informational, not a QA gate.
+export function contrastRatio(foreground, background) {
+  const luminance = color => {
+    const match = /^rgba?\(\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)(?:\s*,\s*([\d.]+))?\s*\)$/.exec(color);
+    if (!match || (match[4] !== undefined && Number(match[4]) !== 1)) return null;
+    const rgb = match.slice(1, 4).map(Number);
+    if (rgb.some(value => value > 255)) return null;
+    return rgb.map(value => value / 255).map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4)
+      .reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0);
+  };
+  const a = luminance(foreground), b = luminance(background);
+  return a === null || b === null ? null : (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
 }
 
 export function locationKey(location) {
@@ -165,9 +191,10 @@ export function missingTokenColors(tokens) {
     && new Set(classified.map(token => token.color)).size === 1;
 }
 
-async function snapshotReader({ overflowSource, highlightSource }) {
+async function snapshotReader({ overflowSource, highlightSource, contrastSource }) {
   const overflow = (0, eval)(`(${overflowSource})`);
   const unhighlighted = (0, eval)(`(${highlightSource})`);
+  const contrast = (0, eval)(`(${contrastSource})`);
   const { rendition, settle } = window.epubQa;
   await settle();
   const location = await rendition.currentLocation();
@@ -188,7 +215,18 @@ async function snapshotReader({ overflowSource, highlightSource }) {
     const rectData = rect => ({ left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height });
     const visible = element => [...element.getClientRects()].some(rect => rect.right + frameRect.left > readerRect.left
       && rect.left + frameRect.left < readerRect.right && rect.bottom + frameRect.top > readerRect.top && rect.top + frameRect.top < readerRect.bottom);
-    const info = { spineIndex: contents.sectionIndex, geometry, headings: [], images: [], code: [], math: [] };
+    const info = { spineIndex: contents.sectionIndex, geometry, headings: [], images: [], captions: [], code: [], math: [],
+      // Computed CSS and loaded font faces do not prove which font rendered each
+      // glyph. Keep this limitation explicit across Chromium and WebKit.
+      bodyFont: { computedFamily: style.fontFamily, size: style.fontSize,
+        faces: [...doc.fonts].map(face => ({ family: face.family, status: face.status, weight: face.weight })),
+        glyphFontVerified: false } };
+    for (const caption of doc.querySelectorAll('figcaption, .epub-caption')) {
+      const figure = caption.closest('figure, .epub-figure');
+      const image = figure?.querySelector('img,svg');
+      info.captions.push({ text: caption.textContent.trim().slice(0, 160), visible: visible(caption),
+        caption: rectData(caption.getBoundingClientRect()), image: image ? rectData(image.getBoundingClientRect()) : null });
+    }
     for (const heading of doc.querySelectorAll('h1,h2,h3')) if (visible(heading)) info.headings.push(heading.textContent.trim());
     for (const [index, img] of [...doc.images].entries()) {
       const image = { index, alt: img.alt, loaded: img.complete && img.naturalWidth > 0, naturalWidth: img.naturalWidth, naturalHeight: img.naturalHeight, visible: visible(img) };
@@ -196,20 +234,40 @@ async function snapshotReader({ overflowSource, highlightSource }) {
       if (!image.loaded) diagnostics.push({ type: 'missing-image', spineIndex: contents.sectionIndex, index, alt: img.alt });
     }
     for (const kind of ['code', 'math']) {
-      const nodes = kind === 'code' ? doc.querySelectorAll('pre') : doc.querySelectorAll('math');
+      const nodes = kind === 'code' ? doc.querySelectorAll('pre') : doc.querySelectorAll('math, [role="math"], .epub-math');
       for (const [index, node] of [...nodes].entries()) {
         const range = doc.createRange(); range.selectNodeContents(node);
-        const fragments = [...range.getClientRects()].map(rectData);
+        const svgBoxes = kind === 'math' ? [...node.querySelectorAll('svg')].flatMap(svg => [...svg.getClientRects()].map(rectData)) : [];
+        const fragments = [...range.getClientRects()].map(rectData).concat(svgBoxes);
         const oversize = overflow(fragments, geometry);
         const computed = contents.window.getComputedStyle(node);
         const entry = { index, visible: visible(node), fontFamily: computed.fontFamily, fontSize: computed.fontSize,
-          color: computed.color, backgroundColor: computed.backgroundColor, text: node.textContent.trim().slice(0, 160), overflow: oversize.slice(0, 5) };
+          color: computed.color, backgroundColor: computed.backgroundColor, text: (node.getAttribute('aria-label') || node.textContent).trim().slice(0, 160), overflow: oversize.slice(0, 5) };
         if (kind === 'code') {
           const tokens = [...node.querySelectorAll('.token')].map(token => ({
             classes: [...token.classList], color: contents.window.getComputedStyle(token).color,
           }));
           entry.tokenColors = [...new Set(tokens.map(token => token.color))];
+          entry.textContrast = contrast(computed.color, computed.backgroundColor);
+          entry.tokenContrasts = entry.tokenColors.map(color => ({ color, ratio: contrast(color, computed.backgroundColor) }));
           if (unhighlighted(tokens)) diagnostics.push({ type: 'unhighlighted-code', spineIndex: contents.sectionIndex, index });
+        }
+        if (kind === 'math') {
+          // Record actual MathML boxes without assuming every author-intended
+          // equation should wrap, or that nested/column-fragmented math is flat.
+          entry.svg = svgBoxes;
+          entry.superscripts = [...node.querySelectorAll('msup,msubsup')].map(script => {
+            const base = script.children[0];
+            const exponent = script.children[script.localName === 'msubsup' ? 2 : 1];
+            return { base: base ? rectData(base.getBoundingClientRect()) : null,
+              exponent: exponent ? rectData(exponent.getBoundingClientRect()) : null };
+          });
+          entry.tables = [...node.querySelectorAll('mtable')].map(table => ({
+            rows: [...table.children].filter(row => ['mtr', 'mlabeledtr'].includes(row.localName))
+              .map(row => ({ rect: rectData(row.getBoundingClientRect()),
+                cells: [...row.children].map(cell => rectData(cell.getBoundingClientRect())) })),
+          }));
+          entry.fragments = fragments.slice(0, 80);
         }
         info[kind].push(entry);
         if (oversize.length) diagnostics.push({ type: `${kind}-overflow`, spineIndex: contents.sectionIndex, index, count: oversize.length, fragments: oversize.slice(0, 5), geometry });
@@ -222,14 +280,14 @@ async function snapshotReader({ overflowSource, highlightSource }) {
 
 export async function renderEpub(options) {
   await mkdir(options.output, { recursive: true });
-  const report = { input: basename(options.input), reader: 'EPUB.js 0.3.93', baseline: options.baseline, viewports: [], errors: [], complete: false };
+  const report = { input: basename(options.input), reader: 'EPUB.js 0.3.93', browserEngine: options.browser ?? 'chromium', baseline: options.baseline, viewports: [], errors: [], complete: false };
   const saveReport = () => writeFile(join(options.output, 'report.json'), `${JSON.stringify(report, null, 2)}\n`);
   let server;
   let browser;
   try {
     server = await serveReader(options.input);
-    const { chromium } = await import('playwright');
-    browser = await chromium.launch({ headless: true });
+    const playwright = await import('playwright');
+    browser = await launchReaderBrowser(playwright, options.browser);
     report.browser = browser.version();
     for (const width of options.widths) {
       const directory = join(options.output, `${width}x${options.height}`);
@@ -257,7 +315,7 @@ export async function renderEpub(options) {
           display: href => page.evaluate(href => window.epubQa.move('display', href), href),
           next: () => page.evaluate(() => window.epubQa.move('next')),
           snapshot: () => page.evaluate(snapshotReader, {
-            overflowSource: overflowingFragments.toString(), highlightSource: missingTokenColors.toString(),
+            overflowSource: overflowingFragments.toString(), highlightSource: missingTokenColors.toString(), contrastSource: contrastRatio.toString(),
           }),
           screenshot: file => page.locator('#reader').screenshot({ path: join(directory, file), animations: 'disabled' }),
           record: async pages => { viewport.pages = pages; await saveReport(); },
@@ -275,7 +333,7 @@ export async function renderEpub(options) {
   }
   const diagnostics = report.viewports.flatMap(viewport => viewport.pages.flatMap(page => page.diagnostics));
   const failed = reportFailed(report);
-  console.log(`${report.viewports.reduce((sum, viewport) => sum + viewport.pages.length, 0)} EPUB pages captured; ${diagnostics.length} visual diagnostics. Report: ${join(options.output, 'report.json')}`);
+  console.log(`${report.viewports.reduce((sum, viewport) => sum + viewport.pages.length, 0)} EPUB pages captured with ${report.browserEngine} ${report.browser ?? '(not launched)'}; ${diagnostics.length} visual diagnostics. Report: ${join(options.output, 'report.json')}`);
   return { report, failed };
 }
 

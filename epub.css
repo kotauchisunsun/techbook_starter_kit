@@ -1,5 +1,18 @@
 @import './assets/epub-generated/prism-okaidia.css';
-@import './assets/epub-generated/temml.css';
+
+@font-face {
+  font-family: 'Noto Sans JP';
+  src: url('./assets/epub-generated/NotoSansJP-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Noto Sans JP';
+  src: url('./assets/epub-generated/NotoSansJP-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+}
 
 @font-face {
   font-family: 'Noto Sans Mono';
@@ -10,45 +23,108 @@
 
 /* Reflowable body layout with self-contained code and math styles. */
 body {
-  font-family: sans-serif;
+  font-family: 'Noto Sans JP', sans-serif;
   line-height: 1.7;
   overflow-wrap: break-word;
 }
 
 h1, h2, h3, h4, h5, h6 {
+  font-family: 'Noto Sans JP', sans-serif;
   line-height: 1.4;
   break-after: avoid;
 }
 
 p { margin: 0.75em 0; }
-a { overflow-wrap: anywhere; }
-img, svg { max-width: 100%; height: auto; }
-figure { margin: 1em 0; }
-figcaption { font-size: 0.9em; }
+a { overflow-wrap: break-word; }
+img { max-width: 100%; height: auto; }
+.epub-figure {
+  margin: 1em 0;
+  text-align: center;
+  text-indent: 0;
+  break-inside: avoid;
+}
+.epub-figure img {
+  display: block;
+  margin-inline: auto;
+}
+.epub-caption {
+  margin: 0.75em 0;
+  font-size: 0.9em;
+  text-align: center;
+  text-indent: 0;
+  break-before: avoid;
+  break-inside: avoid;
+}
+/* Diagrams remain at their manuscript position, and fit one reader page. */
+.epub-mermaid {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 135mm;
+  max-height: min(135mm, 60vh);
+  margin: 1em auto;
+  object-fit: contain;
+  break-before: avoid;
+  break-inside: avoid;
+}
 
-table { border-collapse: collapse; max-width: 100%; }
-th, td { border: 1px solid; padding: 0.3em; }
-pre, pre[class*='language-'], pre code[class*='language-'] {
+table {
+  border-collapse: collapse;
+  max-width: 100%;
+  margin: 1em auto;
+  border-top: 1px solid;
+  border-bottom: 1px solid;
+}
+th, td { border: 0; border-bottom: 0.4px solid; padding: 0.3em 0.35em; }
+thead { border-bottom: 1px solid; }
+pre {
+  background-color: #272822;
+  color: #f8f8f2;
+  padding: 1em;
+  margin: 0.75em 0;
+  border-radius: 0.3em;
+  box-sizing: border-box;
+  max-width: 100%;
+  text-indent: 0;
+  line-height: 1.5;
+}
+pre code {
+  background-color: transparent;
+  color: inherit;
+  padding: 0;
+}
+code.epub-inline-code {
+  background-color: #ecf0f1;
+  color: #34495e;
+  padding: 0.1em 0.3em;
+  border-radius: 0.3em;
+  white-space: normal;
+}
+pre {
   white-space: pre-wrap;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   word-break: normal;
-  font-family: 'Noto Sans Mono', monospace;
+  font-family: 'Noto Sans Mono', 'Noto Sans JP', monospace;
   font-size: 0.9em;
   text-shadow: none;
 }
-pre code[class*='language-'] { font-size: 1em; }
-code { font-family: 'Noto Sans Mono', monospace; }
-math.tml-display { margin: 1em 0; break-inside: avoid; }
-/* Long simple equations can break at top-level operators without splitting
-   fractions, radicals, parenthesized groups or aligned equation tables. */
-math.epub-math-wrap {
-  display: flex !important;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-items: baseline;
+pre code { font-size: 1em; }
+code { font-family: 'Noto Sans Mono', 'Noto Sans JP', monospace; }
+.epub-math {
+  text-indent: 0;
+  font-family: serif;
+  white-space: normal;
+  line-height: 1.8;
 }
-math.epub-math-wrap > mrow { flex: 0 0 auto; }
+.epub-math-display {
+  display: block;
+  text-align: center;
+  margin: 1em 0;
+  break-inside: avoid;
+}
+.epub-math-svg { max-width: 100%; }
 
 /* Keep footnotes visible; EPUB readers cannot use PDF margin-note rules. */
-section.footnotes { margin-top: 2em; font-size: 0.9em; }
-nav[role='doc-toc'] ol { padding-left: 1.5em; }
+.footnotes { margin-top: 2em; font-size: 0.9em; }
+nav ol { padding-left: 1.5em; }

@@ -15,7 +15,7 @@ Vivliostyle で技術書を作るためのテンプレートです。同じ原�
 1. `manuscript/` に Markdown ファイルを作る。章の順番が分かる名前を付ける。
 2. `vivliostyle.config.js` の `entry` にファイルパスを読ませたい順に追加する。目次はここから生成される。
 3. 画像、表、数式、言語指定のコードブロック、Mermaid 図を使える。Mermaid は原稿の `mermaid` コードブロックに直接書く。
-4. `npm run lint` で日本語の文章を確認し、`npm run build` と `npm run check:pdf`、`npm run build:epub` と `npm run check:epub` を実行する。必要に応じて `npm run preview` で PDF の改ページや図表の配置を確認する。EPUB はリフロー形式なので、対象リーダーで目次・日本語・図表・数式の表示も確認する。EPUB 専用の本文は `epub.css`、表紙は `epub-cover.css` で体裁を調整する。数式は MathML に変換され、数式用の Latin Modern Math・Temml 字体とコード用の字体・配色 CSS が同梱される。`npm run check:epub:render -- output/epub/book.epub output/epub-render` で全ページを幅 600px・360px の画像にして目視確認できる。
+4. `npm run lint` で日本語の文章を確認し、`npm run build` と `npm run check:pdf`、`npm run build:epub` と `npm run check:epub` を実行する。必要に応じて `npm run preview` で PDF の改ページや図表の配置を確認する。EPUB はリフロー形式なので、対象リーダーで目次・日本語・図表・数式の表示も確認する。EPUB 専用の本文は `epub.css`、表紙は `epub-cover.css` で体裁を調整する。数式は MathJax の TeX 字体による SVG に変換され、本文用の Noto Sans JP とコード用の Noto Sans Mono・配色 CSS が同梱される。`npm run check:epub:render -- output/epub/book.epub output/epub-render` で全ページを幅 600px・360px の画像にして目視確認できる。
 5. 全形式を作る場合は `npm run build:all` を使う。通常版 PDF、印刷用 PDF、EPUB を生成するため、印刷用ツールも必要。生成後に `npm run check:pdf -- output/pdf/book.pdf output/pdf/book_print.pdf` と `npm run check:epub` を実行する。Docker では `npm run build:docker` がビルドと両形式の検証を行う。
 
 ### 記法の最小例

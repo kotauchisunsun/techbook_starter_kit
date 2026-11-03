@@ -136,7 +136,9 @@ jobs:
       - run: |
           sudo sh scripts/setup.sh
           npm ci
-          npx playwright install --with-deps chromium-headless-shell
+          npx playwright install --with-deps chromium-headless-shell webkit
+          python -m pip install PyMuPDF==1.26.6
+          python scripts/render-epub-mupdf.test.py
       - name: Build EPUB visual fixtures
         run: |
           npm run build:epub
@@ -154,6 +156,17 @@ jobs:
       - name: Render long code and equations
         if: ${{ !cancelled() }}
         run: node scripts/render-epub.js output/epub-stress/stress.epub output/epub-visual/stress
+      - name: Render EPUB with WebKit
+        if: ${{ !cancelled() }}
+        run: node scripts/render-epub.js output/epub/book.epub output/epub-visual/current-webkit --browser=webkit
+      - name: Render long code and equations with WebKit
+        if: ${{ !cancelled() }}
+        run: node scripts/render-epub.js output/epub-stress/stress.epub output/epub-visual/stress-webkit --browser=webkit
+      - name: Render EPUB and stress fixture with MuPDF
+        if: ${{ !cancelled() }}
+        run: |
+          python scripts/render-epub-mupdf.py output/epub/book.epub output/epub-visual/current-mupdf
+          python scripts/render-epub-mupdf.py output/epub-stress/stress.epub output/epub-visual/stress-mupdf
       - uses: actions/upload-artifact@v7.0.2
         if: ${{ !cancelled() }}
         with:
