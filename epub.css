@@ -38,7 +38,7 @@ pre, pre[class*='language-'], pre code[class*='language-'] {
 }
 pre code[class*='language-'] { font-size: 1em; }
 code { font-family: 'Noto Sans Mono', monospace; }
-math.tml-display { margin: 1em 0; }
+math.tml-display { margin: 1em 0; break-inside: avoid; }
 /* Long simple equations can break at top-level operators without splitting
    fractions, radicals, parenthesized groups or aligned equation tables. */
 math.epub-math-wrap {

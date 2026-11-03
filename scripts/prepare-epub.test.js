@@ -130,6 +130,7 @@ test('EPUB preparation bundles code and MathML styles with every referenced font
     assert.doesNotMatch(bundle, /@import/);
     assert.match(bundle, /\.token\.keyword/);
     assert.match(bundle, /\.tml-right/);
+    assert.match(bundle, /math\.tml-display\s*\{[^}]*break-inside:\s*avoid/);
     assert.match(bundle, /url\('\.\/NotoSansMono-Regular\.ttf'\)/);
     assert.match(bundle, /font-family: 'Noto Sans Mono'/);
     const css = readFileSync('epub.css', 'utf8');
