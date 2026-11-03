@@ -8,7 +8,7 @@ Vivliostyle による技術書の最小構成です。同じ原稿から通常�
 
 ## はじめに
 
-Node.js 22.12 以上と npm を使用します。`vivliostyle.config.js` のタイトル、著者、判型（`size`）、章順を変更し、`manuscript/01.md` を原稿に置き換えてください。章を増やしたら `entry` にファイルを追加します。`npm run check:pdf` は `size` に設定した判型で検証します。
+Node.js 24 以上（推奨）、または Node.js 22.13 以上の 22 系と npm を使用します。`vivliostyle.config.js` のタイトル、著者、判型（`size`）、章順を変更し、`manuscript/01.md` を原稿に置き換えてください。章を増やしたら `entry` にファイルを追加します。`npm run check:pdf` は `size` に設定した判型で検証します。
 
 ```sh
 npm ci
@@ -22,6 +22,38 @@ npm run check:pdf
 原稿の日本語を校正する場合は `npm run lint` を実行します。コードブロック（Mermaid を含む）とブロック数式は校正対象から除外します。
 
 Docker を使う場合は、WSL または Linux で `npm run build:docker` を実行します。通常版と印刷版の PDF を `output/pdf/`、EPUB を `output/epub/` に生成し、両形式を検証します。ローカルで全形式をまとめて作る場合は `npm run build:all` を実行します。印刷用 PDF のツールも必要です。
+
+## ソースコードを検査する
+
+原稿校正の `npm run lint` とは別に、開発用の `npm run lint:code` を用意しています。JavaScript は ESLint の推奨ルール、Python は Ruff の基本エラー検出（E4/E7/E9/F）、シェルスクリプトは ShellCheck で検査します。整形は行いません。保守中の ESLint 10 に合わせて、最小 Node.js を 22.12 から 22.13 に更新しています（CI は引き続き Node.js 24）。
+
+`npm ci` に加えて、Python 3.10 以上で lint 専用の環境を一度作成します。Ruff と ShellCheck の配布パッケージは `requirements-lint.txt` で固定しています。PDF・EPUB のビルドだけなら、この追加環境は不要です。
+
+Linux / macOS / WSL:
+
+```sh
+python3 -m venv .venv-lint
+. .venv-lint/bin/activate
+python -m pip install -r requirements-lint.txt
+npm run lint:code
+npm run test:lint
+```
+
+Windows PowerShell:
+
+```powershell
+py -3 -m venv .venv-lint
+.\.venv-lint\Scripts\Activate.ps1
+python -m pip install -r requirements-lint.txt
+npm run lint:code
+npm run test:lint
+```
+
+次回も同じ仮想環境を有効にして実行してください。`ruff` と `shellcheck` を PATH から呼び出すため、未導入・未有効の場合も検査をスキップせず失敗します。PowerShell の設定で有効化が禁止されている場合は、設定を変更せず WSL で上の手順を使用できます。
+
+対象はルート直下の JavaScript 設定ファイル（`.js` / `.mjs` / `.cjs`）と、`scripts/` 以下の同拡張子・`.py`・`.sh` の実装とテストです。新しい対象ファイルは自動で含まれます。`node_modules/`、`output/`、`.vivliostyle/`、`assets/`（`assets/epub-generated/` を含む）、`tmp/`、仮想環境・キャッシュは除外します。シンボリックリンクはたどりません。Markdown、原稿中のコード例、CSS、JSON、YAML、SVG、およびワークフロー内の埋め込みコードはこの段階では対象外です。リポジトリ全体の lint は後続タスクで扱います。
+
+PR と main の CI では `lint:code` と `test:lint` の失敗をエラーにします。`npm test` は Node.js の回帰テスト、`npm run test:lint` は実際の三つの linter に正常・異常ソースと除外対象のファイルを渡す回帰テストです。後者のログには意図的に発生させたエラーが表示されますが、テスト自体の成功・失敗で判定してください。原稿校正のコマンドと PR での報告方法は変更していません。
 
 ## 原稿・画像・表紙を編集する
 

@@ -5,3 +5,6 @@
 /assets/epub-generated/
 
 __pycache__/
+
+/.venv-lint/
+/.ruff_cache/

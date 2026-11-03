@@ -5,7 +5,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {execFileSync} from 'node:child_process';
 const workflow = readFileSync('.github/workflows/cleanup-pr-artifacts.yml', 'utf8');
-const script = workflow.split('          script: |\n')[1].split('\n').map(line => line.replace(/^            /, '')).join('\n');
+const script = workflow.split('          script: |\n')[1].split('\n').map(line => line.replace(/^ {12}/, '')).join('\n');
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 const execute = new AsyncFunction('github', 'context', 'core', script);
 
@@ -268,7 +268,7 @@ test('initial list failure reports unknown scope and preserves the original API 
 test('upload copies carry the actual PR-specific names and preserve PDF/EPUB bytes and source names', () => {
   const text = readFileSync('.github/workflows/pr.yml', 'utf8');
   const step = text.split('      - name: Prepare PR-specific artifact filenames\n')[1].split('      - uses:')[0];
-  const shell = step.split('        run: |\n')[1].split('\n').map(line => line.replace(/^          /, '')).join('\n');
+  const shell = step.split('        run: |\n')[1].split('\n').map(line => line.replace(/^ {10}/, '')).join('\n');
   const root = mkdtempSync(join(tmpdir(), 'pr-artifacts-test-'));
   try {
     mkdirSync(join(root, 'output/pdf'), {recursive: true});

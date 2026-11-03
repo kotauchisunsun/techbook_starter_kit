@@ -4,7 +4,7 @@ Vivliostyle で技術書を作るためのテンプレートです。同じ原�
 
 ## インストール時
 
-1. Node.js 22.12 以上と npm を用意し、`npm ci` と `npx playwright install chromium-headless-shell` を実行する。
+1. Node.js 24 以上（推奨）、または Node.js 22.13 以上の 22 系と npm を用意し、`npm ci` と `npx playwright install chromium-headless-shell` を実行する。
 2. `vivliostyle.config.js` の `title`、`author`、必要に応じて判型の `size` を本に合わせて変更する。
 3. `npm run build` と `npm run check:pdf` で通常版 PDF を確認する。EPUB は `npm run build:epub` と `npm run check:epub` で生成・検証し、`output/epub/book.epub` を対象のリーダーで開いて確認する。
 4. EPUB の検証には公式の EPUBCheck を導入する。Ubuntu・WSL は `epubcheck` パッケージ、ほかの環境は `epubcheck` コマンドか Java と `EPUBCHECK_JAR`（公式 JAR のパス）を使う。詳細は README を参照する。
@@ -69,3 +69,7 @@ flowchart TD
 3. `npm run build` で参照切れやページからのはみ出しがないか確認する。印刷用 PDF を作る場合は、グレースケールで図が読めるかも確認する。EPUB ではリーダーの文字サイズや画面幅を変えて画像や表の表示を確認する。
 
 生成物の `output/` と `.vivliostyle/`、依存関係の `node_modules/` は編集・コミットしない。
+
+## ソースコードを変更するとき
+
+`README.md` の lint 専用環境を有効にして `npm run lint:code` と `npm run test:lint`、`npm test` を実行する。原稿校正の `npm run lint` は別に維持する。生成物を lint 対象へ追加しない。

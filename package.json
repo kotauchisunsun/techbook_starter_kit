@@ -5,7 +5,7 @@
   "private": true,
   "license": "MIT",
   "engines": {
-    "node": ">=22.12.0"
+    "node": "^22.13.0 || >=24.0.0"
   },
   "scripts": {
     "build": "vivliostyle build",
@@ -19,7 +19,9 @@
     "build:epub": "vivliostyle build --config vivliostyle.epub.config.js",
     "check:epub": "node scripts/check-epub.js",
     "prebuild:epub": "node scripts/prepare-epub.js",
-    "check:epub:render": "node scripts/render-epub.js"
+    "check:epub:render": "node scripts/render-epub.js",
+    "lint:code": "node scripts/lint-code.js",
+    "test:lint": "node --test scripts/lint-code.integration.js"
   },
   "dependencies": {
     "@mitsuharu/vivliostyle-theme-noto-sans-jp": "0.2.0",
@@ -29,12 +31,15 @@
     "press-ready": "4.0.3"
   },
   "devDependencies": {
+    "@eslint/js": "10.0.1",
     "@mathjax/mathjax-tex-font": "4.1.3",
     "@mathjax/src": "4.1.3",
     "@napi-rs/canvas": "0.1.69",
     "@resvg/resvg-js": "2.6.2",
     "@vivliostyle/vfm": "2.7.2",
     "epubjs": "0.3.93",
+    "eslint": "10.14.0",
+    "globals": "17.14.0",
     "hast-util-from-html": "1.0.2",
     "jszip": "3.10.1",
     "mermaid-isomorphic": "3.1.0",
