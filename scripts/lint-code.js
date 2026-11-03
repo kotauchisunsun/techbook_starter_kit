@@ -6,14 +6,14 @@ import { spawnSync } from 'node:child_process';
 export const repositoryRoot = fileURLToPath(new URL('../', import.meta.url));
 export const excludedDirectories = new Set([
   'node_modules', 'output', '.vivliostyle', 'assets', 'epub-generated', 'tmp',
-  '.git', '.venv', '.venv-lint', '__pycache__', '.ruff_cache',
+  '.git', '.venv', '.venv-lint', '__pycache__',
 ]);
 
 // An allowlist, not a repository-wide extension search: prose/assets/workflows
 // and temporary build configs are deliberately outside this first phase.
 export function sourceFiles(root = repositoryRoot) {
-  const files = { javascript: [], python: [], shell: [] };
-  const languages = { '.js': 'javascript', '.mjs': 'javascript', '.cjs': 'javascript', '.py': 'python', '.sh': 'shell' };
+  const files = { javascript: [], shell: [] };
+  const languages = { '.js': 'javascript', '.mjs': 'javascript', '.cjs': 'javascript', '.sh': 'shell' };
   function visit(directory, recursive) {
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
       const path = join(directory, entry.name);
@@ -33,7 +33,6 @@ export function lintCode(root = repositoryRoot) {
   const files = sourceFiles(root);
   const commands = [
     [process.execPath, [join(repositoryRoot, 'node_modules/eslint/bin/eslint.js'), '--config', join(repositoryRoot, 'eslint.config.js'), '--max-warnings=0', ...files.javascript]],
-    ['ruff', ['check', '--config', join(repositoryRoot, 'ruff.toml'), '--no-cache', ...files.python]],
     ['shellcheck', ['--norc', '--', ...files.shell]],
   ];
   let failed = false;

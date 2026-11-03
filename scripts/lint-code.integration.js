@@ -10,7 +10,8 @@ function fixture(t, overrides = {}) {
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const files = {
     'scripts/good.js': 'console.log("ok");',
-    'scripts/good.py': 'print("ok")\n',
+    // Python remains supported by the EPUB renderer, but is not a lint target.
+    'scripts/ignored.py': 'Python is intentionally not checked by this command',
     'scripts/good.sh': '#!/bin/sh\nprintf "%s\\n" "ok"\n',
     ...overrides,
   };
@@ -29,7 +30,6 @@ test('all linters pass valid code despite invalid excluded generated files', t =
 });
 for (const [language, path, source] of [
   ['JavaScript', 'scripts/good.js', 'missingFunction();'],
-  ['Python', 'scripts/good.py', 'print(missing_name)\n'],
   ['shell', 'scripts/good.sh', '#!/bin/sh\necho $1\n'],
 ]) {
   test(`${language} errors fail the aggregate command`, t => {

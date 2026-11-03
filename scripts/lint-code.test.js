@@ -18,10 +18,10 @@ function fixture(t, paths) {
 }
 
 test('source allowlist includes configs, implementations and nested tests, not generated or document files', t => {
-  const included = ['vivliostyle.config.js', 'eslint.config.js', 'scripts/nested/test.js', 'scripts/render.py', 'scripts/setup.sh'];
+  const included = ['vivliostyle.config.js', 'eslint.config.js', 'scripts/nested/test.js', 'scripts/setup.sh'];
   const excluded = ['README.md', 'custom.css', 'package.json', '.github/workflows/pr.yml', 'manuscript/example.js',
     'assets/epub-generated/bad.js', 'output/bad.js', '.vivliostyle/bad.js', 'tmp/bad.js', 'node_modules/bad.js',
-    'scripts/fixtures/example.md', 'scripts/output/bad.py', 'scripts/tmp/bad.sh', 'scripts/node_modules/bad.js'];
+    'scripts/render.py', 'scripts/fixtures/example.md', 'scripts/output/bad.py', 'scripts/tmp/bad.sh', 'scripts/node_modules/bad.js'];
   const root = fixture(t, Object.fromEntries([...included, ...excluded].map(path => [path, 'invalid source !'])));
   assert.deepEqual(Object.values(sourceFiles(root)).flat().sort(), included.sort());
 });

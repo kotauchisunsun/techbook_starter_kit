@@ -25,9 +25,9 @@ Docker を使う場合は、WSL または Linux で `npm run build:docker` を�
 
 ## ソースコードを検査する
 
-原稿校正の `npm run lint` とは別に、開発用の `npm run lint:code` を用意しています。JavaScript は ESLint の推奨ルール、Python は Ruff の基本エラー検出（E4/E7/E9/F）、シェルスクリプトは ShellCheck で検査します。整形は行いません。保守中の ESLint 10 に合わせて、最小 Node.js を 22.12 から 22.13 に更新しています（CI は引き続き Node.js 24）。
+原稿校正の `npm run lint` とは別に、開発用の `npm run lint:code` を用意しています。JavaScript は ESLint の推奨ルール、シェルスクリプトは ShellCheck で検査します。整形は行いません。保守中の ESLint 10 に合わせて、最小 Node.js を 22.12 から 22.13 に更新しています（CI は引き続き Node.js 24）。
 
-`npm ci` に加えて、Python 3.10 以上で lint 専用の環境を一度作成します。Ruff と ShellCheck の配布パッケージは `requirements-lint.txt` で固定しています。PDF・EPUB のビルドだけなら、この追加環境は不要です。
+`npm ci` に加えて、Python 3.10 以上で lint 専用の環境を一度作成します。ShellCheck の配布パッケージは `requirements-lint.txt` で固定しています。PDF・EPUB のビルドだけなら、この追加環境は不要です。
 
 Linux / macOS / WSL:
 
@@ -49,11 +49,11 @@ npm run lint:code
 npm run test:lint
 ```
 
-次回も同じ仮想環境を有効にして実行してください。`ruff` と `shellcheck` を PATH から呼び出すため、未導入・未有効の場合も検査をスキップせず失敗します。PowerShell の設定で有効化が禁止されている場合は、設定を変更せず WSL で上の手順を使用できます。
+次回も同じ仮想環境を有効にして実行してください。`shellcheck` を PATH から呼び出すため、未導入・未有効の場合も検査をスキップせず失敗します。PowerShell の設定で有効化が禁止されている場合は、設定を変更せず WSL で上の手順を使用できます。
 
-対象はルート直下の JavaScript 設定ファイル（`.js` / `.mjs` / `.cjs`）と、`scripts/` 以下の同拡張子・`.py`・`.sh` の実装とテストです。新しい対象ファイルは自動で含まれます。`node_modules/`、`output/`、`.vivliostyle/`、`assets/`（`assets/epub-generated/` を含む）、`tmp/`、仮想環境・キャッシュは除外します。シンボリックリンクはたどりません。Markdown、原稿中のコード例、CSS、JSON、YAML、SVG、およびワークフロー内の埋め込みコードはこの段階では対象外です。リポジトリ全体の lint は後続タスクで扱います。
+対象はルート直下の JavaScript 設定ファイル（`.js` / `.mjs` / `.cjs`）と、`scripts/` 以下の同拡張子・`.sh` の実装とテストです。新しい対象ファイルは自動で含まれます。`node_modules/`、`output/`、`.vivliostyle/`、`assets/`（`assets/epub-generated/` を含む）、`tmp/`、仮想環境・キャッシュは除外します。シンボリックリンクはたどりません。Python、Markdown、原稿中のコード例、CSS、JSON、YAML、SVG、およびワークフロー内の埋め込みコードはこの段階では対象外です。Python の EPUB レンダラーと描画テストは維持し、Ruff は導入しません。リポジトリ全体の lint は後続タスクで扱います。
 
-PR と main の CI では `lint:code` と `test:lint` の失敗をエラーにします。`npm test` は Node.js の回帰テスト、`npm run test:lint` は実際の三つの linter に正常・異常ソースと除外対象のファイルを渡す回帰テストです。後者のログには意図的に発生させたエラーが表示されますが、テスト自体の成功・失敗で判定してください。原稿校正のコマンドと PR での報告方法は変更していません。
+PR と main の CI では `lint:code` と `test:lint` の失敗をエラーにします。`npm test` は Node.js の回帰テスト、`npm run test:lint` は実際の二つの linter に正常・異常ソースと除外対象のファイルを渡す回帰テストです。後者のログには意図的に発生させたエラーが表示されますが、テスト自体の成功・失敗で判定してください。原稿校正のコマンドと PR での報告方法は変更していません。
 
 ## 原稿・画像・表紙を編集する
 
