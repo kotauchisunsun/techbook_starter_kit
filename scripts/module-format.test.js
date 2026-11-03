@@ -48,3 +48,42 @@ test('GitHub reporter loads the actual ESM helper in both inline steps', async (
   }
   assert.deepEqual(outputs, {plan: '', report_id: ''});
 });
+
+test('EPUB inherits content and metadata without changing either PDF output', async () => {
+  const { default: epubConfig } = await import('../vivliostyle.epub.config.js');
+  for (const key of ['title', 'author', 'language', 'entry', 'cover', 'toc', 'copyAsset', 'documentProcessor']) {
+    assert.deepEqual(epubConfig[key], config[key], key);
+  }
+  assert.equal(epubConfig.theme, './epub.css');
+  assert.deepEqual(epubConfig.output, [{ path: 'output/epub/book.epub', format: 'epub' }]);
+  assert.equal(epubConfig.vfm.mathRenderer, 'mathml');
+  assert.equal(epubConfig.vfm.footnote, 'pandoc');
+  assert.equal(config.vfm?.mathRenderer, undefined);
+  assert.equal(config.output[0].format, 'pdf');
+  assert.equal(printConfig.output[0].format, 'pdf');
+});
+
+test('EPUB math and footnotes do not require runtime JavaScript or PDF page margins', async () => {
+  const { default: epubConfig } = await import('../vivliostyle.epub.config.js');
+  const html = String(await epubConfig.documentProcessor(epubConfig.vfm, { title: 'EPUB test', lang: 'ja' }).process(
+    '# テスト\n\n$x^2=1$ と注釈[^1]。\n\n$$\n\\frac{1}{2}\n$$\n\n[^1]: 注釈本文。'
+  ));
+  assert.match(html, /<math[ >]/);
+  assert.match(html, /<mfrac>/);
+  assert.doesNotMatch(html, /<script|MathJax|data-math-typeset/);
+  assert.match(html, /href="#fn1"/);
+  assert.match(html, /id="fn1"/);
+  assert.match(html, /注釈本文/);
+  const css = readFileSync('epub.css', 'utf8');
+  assert.doesNotMatch(css, /@page|display:\s*none|\d+mm/);
+});
+
+test('all-format and Docker builds include EPUB validation with installed tools', () => {
+  const { scripts } = JSON.parse(readFileSync('package.json', 'utf8'));
+  assert.equal(scripts.build, 'vivliostyle build');
+  assert.equal(scripts['build:epub'], 'vivliostyle build --config vivliostyle.epub.config.js');
+  assert.equal(scripts['build:all'], 'npm run build && npm run build:print && npm run build:epub');
+  assert.equal(scripts['check:epub'], 'node scripts/check-epub.js');
+  assert.match(scripts['build:docker'], /npm run build:all && npm run check:pdf -- output\/pdf\/book\.pdf output\/pdf\/book_print\.pdf && npm run check:epub/);
+  assert.match(readFileSync('scripts/setup.sh', 'utf8'), /apt-get install[^\n]+\bepubcheck\b/);
+});

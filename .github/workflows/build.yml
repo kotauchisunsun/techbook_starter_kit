@@ -1,4 +1,4 @@
-name: Build and publish PDFs
+name: Build and publish PDF and EPUB
 
 on:
   push:
@@ -38,23 +38,30 @@ jobs:
         with:
           node-version: '24'
           cache: npm
-      - name: Install fonts and PDF tools
+      - name: Install fonts and publication tools
         run: sudo sh scripts/setup.sh
       - name: Install dependencies
         run: |
           npm ci
           npx playwright install --with-deps chromium-headless-shell
-      - name: Build and check PDFs
+      - name: Build and check PDF and EPUB
         run: |
           npm run build:all
           npm run check:pdf -- output/pdf/book.pdf output/pdf/book_print.pdf
+          npm run check:epub
       - uses: actions/upload-artifact@v7.0.2
         if: github.event_name == 'workflow_dispatch'
         with:
           name: techbook-pdf
           path: output/pdf/*.pdf
           if-no-files-found: error
-      - name: Prepare PDFs for release
+      - uses: actions/upload-artifact@v7.0.2
+        if: github.event_name == 'workflow_dispatch'
+        with:
+          name: techbook-epub
+          path: output/epub/book.epub
+          if-no-files-found: error
+      - name: Prepare PDF and EPUB for release
         if: github.ref == 'refs/heads/main'
         id: release
         run: |
@@ -63,12 +70,13 @@ jobs:
           mkdir -p release
           cp output/pdf/book.pdf "release/techbook_${release_date}.pdf"
           cp output/pdf/book_print.pdf "release/techbook_${release_date}_print.pdf"
+          cp output/epub/book.epub "release/techbook_${release_date}.epub"
 
-      - name: Publish PDFs to Releases
+      - name: Publish PDF and EPUB to Releases
         if: github.ref == 'refs/heads/main'
         uses: svenstaro/upload-release-action@v2
         with:
-          file: release/techbook_*.pdf
+          file: release/techbook_${{ steps.release.outputs.tag }}*
           file_glob: true
           tag: ${{ steps.release.outputs.tag }}
           target_commit: ${{ github.sha }}
