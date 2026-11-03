@@ -1,6 +1,9 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync, existsSync} from 'node:fs';
+import {readFileSync, existsSync, mkdtempSync, rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {spawnSync} from 'node:child_process';
 import yaml from 'js-yaml';
 const workflow = yaml.load(readFileSync('.github/workflows/visual-regression.yml', 'utf8'));
 const job = workflow.jobs['visual-regression'];
@@ -69,4 +72,22 @@ test('EPUB uses the same head readers for both independently built sources and c
   const smoke = yaml.load(readFileSync('.github/workflows/epub-vrt-smoke.yml', 'utf8'));
   assert.deepEqual(smoke.permissions, {contents: 'read'});
   assert.ok(smoke.jobs['epub-vrt-smoke'].steps.some(s => s.run?.includes('scripts/epub-vrt.integration.js')));
+});
+
+test('host report merge and fallback use runner temp without writing Docker output', t => {
+  const combine = job.steps.find(s => s.name === 'Combine PDF and EPUB results');
+  const prepare = job.steps.find(s => s.name === 'Prepare comparison report');
+  assert.match(combine.run, /output\/visual "\$RUNNER_TEMP\/vrt-report\/pr-\$\{PR_NUMBER\}-vrt-report\.json"/);
+  assert.doesNotMatch(prepare.run, /output\/visual|chown|chmod/);
+  const root = mkdtempSync(join(tmpdir(), 'vrt-report-fallback-'));
+  t.after(() => rmSync(root, {recursive: true, force: true}));
+  const env = {...process.env, RUNNER_TEMP: root, PR_NUMBER: '45'};
+  const execute = () => spawnSync('sh', ['-ec', prepare.run], {cwd: root, env, encoding: 'utf8'});
+  assert.equal(execute().status, 0);
+  const output = join(root, 'vrt-report/pr-45-vrt-report.json');
+  assert.match(JSON.parse(readFileSync(output, 'utf8')).errors[0].reason, /unavailable/);
+  assert.equal(existsSync(join(root, 'output')), false);
+  const original = readFileSync(output, 'utf8');
+  assert.equal(execute().status, 0);
+  assert.equal(readFileSync(output, 'utf8'), original);
 });
