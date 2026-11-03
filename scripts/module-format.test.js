@@ -55,6 +55,9 @@ test('EPUB inherits content and metadata without changing either PDF output', as
     assert.deepEqual(epubConfig[key], config[key], key);
   }
   assert.equal(epubConfig.theme, './epub.css');
+  assert.equal(epubConfig.workspaceDir, '.vivliostyle/epub');
+  assert.notEqual(epubConfig.workspaceDir, config.workspaceDir ?? '.vivliostyle');
+  assert.equal(epubConfig.vfm.table.cell, 'align-style');
   assert.deepEqual(epubConfig.output, [{ path: 'output/epub/book.epub', format: 'epub' }]);
   assert.equal(epubConfig.vfm.mathRenderer, 'mathml');
   assert.equal(epubConfig.vfm.footnote, 'pandoc');
@@ -86,4 +89,18 @@ test('all-format and Docker builds include EPUB validation with installed tools'
   assert.equal(scripts['check:epub'], 'node scripts/check-epub.js');
   assert.match(scripts['build:docker'], /npm run build:all && npm run check:pdf -- output\/pdf\/book\.pdf output\/pdf\/book_print\.pdf && npm run check:epub/);
   assert.match(readFileSync('scripts/setup.sh', 'utf8'), /apt-get install[^\n]+\bepubcheck\b/);
+});
+
+
+test('EPUB tables preserve left, center and right alignment with conforming CSS', async () => {
+  const { default: epubConfig } = await import('../vivliostyle.epub.config.js');
+  const markdown = '| 左 | 中央 | 右 |\n| :--- | :---: | ---: |\n| a | b | c |';
+  const html = String(await epubConfig.documentProcessor(epubConfig.vfm).process(markdown));
+  assert.doesNotMatch(html, /\salign=/);
+  for (const align of ['left', 'center', 'right']) {
+    assert.match(html, new RegExp(`<th style="text-align: ${align}">`));
+    assert.match(html, new RegExp(`<td style="text-align: ${align}">`));
+  }
+  const pdfHtml = String(await config.documentProcessor(config.vfm).process(markdown));
+  assert.match(pdfHtml, /align="right"/);
 });
