@@ -27,10 +27,10 @@ test('incremental EPUB preparation removes only obsolete generated math assets',
 
 test('npm EPUB build prepares its configured destination without deleting prior output', () => {
   const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
-  assert.equal(pkg.scripts['prebuild:epub'], 'node scripts/prepare-epub.js');
+  assert.equal(pkg.scripts['prebuild:epub'], 'node scripts/epub/prepare-epub.js');
   const cwd = mkdtempSync(join(tmpdir(), 'prepare-epub-'));
   try {
-    const script = resolve('scripts/prepare-epub.js');
+    const script = resolve('scripts/epub/prepare-epub.js');
     const run = () => spawnSync(process.execPath, [script], { cwd, encoding: 'utf8' });
     let result = run();
     assert.equal(result.status, 0, result.stderr);

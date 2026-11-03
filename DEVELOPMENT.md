@@ -15,6 +15,16 @@ npm run check:epub
 
 `npm run lint` は原稿の日本語校正です。コードブロック（Mermaid を含む）とブロック数式は対象外で、出版システムのコードを検査するコマンドではありません。
 
+## scripts の構成
+
+- `scripts/epub/`: EPUB の生成・検証・描画と、表示確認用の `fixtures/`。
+- `scripts/pdf/`: PDF の検証・ページ画像化。
+- `scripts/vrt/`: PDF / EPUB の画像比較、比較の実行と結果の集約。
+- `scripts/ci/`: PR artifact の通知、VRT 結果の投稿、ワークフローと構成の回帰テスト。
+- `scripts/mermaid.js` と `scripts/setup.sh`: PDF / EPUB 共通の図の処理と環境セットアップ。
+
+ユニットテストは対象のスクリプトと同じディレクトリに置き、`npm test` で `scripts/**/*.test.js` をまとめて実行します。公開している npm コマンドは変わりません。
+
 ## scripts のコードを検査する
 
 `npm run lint:code` は `scripts/` 配下の実装コードと既存テストコードを検査します。JavaScript は ESLint、シェルは ShellCheck を使います。独自のファイル探索やワークフロー解析は行いません。自動整形・修正もしません。
@@ -31,8 +41,8 @@ Python は `.python-version` の 3.12 系、ShellCheck と PyMuPDF は `pyprojec
 
 通常の PDF・EPUB ビルドには uv は不要です。`.venv/` はコミットしません。
 
-- `lint:js`: ESLint が `scripts/` の `.js` / `.mjs` / `.cjs` を検査します。`*.test.js`・`*.integration.js` と同じ命名の MJS/CJS も含めます。lint 自体の動作確認テストは追加しません。`scripts/fixtures/` の例と、`scripts/` 内の依存関係・生成物は除外します。
-- `lint:shell`: `scripts/setup.sh`・`scripts/render-pdf-pages.sh`・`scripts/run-epub-vrt.sh` を ShellCheck に直接渡します。シェルを追加したら、このコマンドの対象にも追加してください。Windows でもワイルドカード展開に依存しません。
+- `lint:js`: ESLint が `scripts/` の `.js` / `.mjs` / `.cjs` を検査します。`*.test.js`・`*.integration.js` と同じ命名の MJS/CJS も含めます。lint 自体の動作確認テストは追加しません。`scripts/epub/fixtures/` の例と、`scripts/` 内の依存関係・生成物は除外します。
+- `lint:shell`: `scripts/setup.sh`・`scripts/pdf/render-pdf-pages.sh`・`scripts/vrt/run-epub-vrt.sh` を ShellCheck に直接渡します。シェルを追加したら、このコマンドの対象にも追加してください。Windows でもワイルドカード展開に依存しません。
 - ルートの設定 JS・CSS、JSON・YAML、CI 内の埋め込みコード、Python は対象外です。原稿・文書・コード例・素材・生成物も対象にしません。Ruff は不要です。
 
 PR と main の CI で `lint:code` を実行します。ビルド・EPUB 描画・既存回帰テストは別に維持します。原稿校正の `npm run lint` は任意の別機能です。

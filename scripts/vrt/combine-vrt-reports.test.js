@@ -32,7 +32,7 @@ test('explicit runner-owned destination never writes into container output', t =
   for (const format of ['pdf', 'epub']) writeFileSync(join(source, `${format}-report.json`), '{"errors":[]}');
   assert.deepEqual(combineReports(source, output), {errors: []});
   assert.deepEqual(JSON.parse(readFileSync(output, 'utf8')), {errors: []});
-  const cli = spawnSync(process.execPath, ['scripts/combine-vrt-reports.js', source, output], {encoding: 'utf8'});
+  const cli = spawnSync(process.execPath, ['scripts/vrt/combine-vrt-reports.js', source, output], {encoding: 'utf8'});
   assert.equal(cli.status, 0, cli.stderr);
   assert.deepEqual(JSON.parse(readFileSync(output, 'utf8')), {errors: []});
   const absent = join(root, 'absent-output');

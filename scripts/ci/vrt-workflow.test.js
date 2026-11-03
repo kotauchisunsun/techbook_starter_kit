@@ -50,8 +50,8 @@ test('Dependabot config supplies vrt directly, rather than a token-driven labeli
 test('baseline/current PDF comparison, 300dpi and seven-day diagnostic artifacts remain', () => {
   const build = job.steps.find(s => s.name === 'Build, render, and compare PDFs in Docker').run;
   for (const command of ['npm ci', 'npm run build', 'npm run build:print', 'npm run check:pdf',
-    'scripts/render-pdf-pages.sh', 'scripts/compare-pdf-pages.js']) assert.ok(build.includes(command));
-  assert.match(readFileSync('scripts/render-pdf-pages.sh', 'utf8'), /-r 300/);
+    'scripts/pdf/render-pdf-pages.sh', 'scripts/vrt/compare-pdf-pages.js']) assert.ok(build.includes(command));
+  assert.match(readFileSync('scripts/pdf/render-pdf-pages.sh', 'utf8'), /-r 300/);
   const uploads = job.steps.filter(s => s.uses?.startsWith('actions/upload-artifact@'));
   assert.equal(uploads.length, 2);
   assert.ok(uploads.every(s => s.with['retention-days'] === 7));
@@ -64,12 +64,12 @@ test('baseline/current PDF comparison, 300dpi and seven-day diagnostic artifacts
 test('EPUB uses the same head readers for both independently built sources and combines failures', () => {
   const epub = job.steps.find(s => s.name === 'Build, render, and compare EPUBs in Docker');
   assert.equal(epub.if, '${{ !cancelled() }}');
-  assert.match(epub.run, /scripts\/run-epub-vrt.sh/);
-  const setup = readFileSync('scripts/run-epub-vrt.sh', 'utf8');
+  assert.match(epub.run, /scripts\/vrt\/run-epub-vrt.sh/);
+  const setup = readFileSync('scripts/vrt/run-epub-vrt.sh', 'utf8');
   assert.match(setup, /uv sync --locked --only-group vrt/);
-  assert.match(epub.run, /docker build -t techbook-epub-vrt - < scripts\/epub-vrt\.Dockerfile/);
-  assert.match(epub.run, /techbook-epub-vrt sh scripts\/run-epub-vrt.sh/);
-  assert.match(setup, /node scripts\/run-epub-vrt.js/);
+  assert.match(epub.run, /docker build -t techbook-epub-vrt - < scripts\/vrt\/epub-vrt\.Dockerfile/);
+  assert.match(epub.run, /techbook-epub-vrt sh scripts\/vrt\/run-epub-vrt.sh/);
+  assert.match(setup, /node scripts\/vrt\/run-epub-vrt.js/);
   assert.equal(job.steps.find(s => s.name === 'Combine PDF and EPUB results').if, 'always()');
   const smoke = yaml.load(readFileSync('.github/workflows/epub-vrt-smoke.yml', 'utf8'));
   assert.deepEqual(smoke.permissions, {contents: 'read'});

@@ -26,10 +26,10 @@ test('each source builds independently, both use head readers, and successful co
   const report = runEpubVrt({...options, run: (command, args, cwd) => { calls.push({command, args, cwd}); return options.success(command, args, cwd); }});
   assert.deepEqual(report.errors, []);
   assert.equal(calls.filter(c => c.command === 'npm' && c.args[0] === 'run').length, 2);
-  const renders = calls.filter(c => c.args[0]?.startsWith('scripts/render-epub'));
+  const renders = calls.filter(c => c.args[0]?.startsWith('scripts/epub/render-epub'));
   assert.equal(renders.length, 6);
   assert(renders.every(c => c.cwd === options.current));
-  const mupdf = renders.filter(c => c.args[0] === 'scripts/render-epub-mupdf.py');
+  const mupdf = renders.filter(c => c.args[0] === 'scripts/epub/render-epub-mupdf.py');
   assert.equal(mupdf.length, 2);
   assert(mupdf.every(c => c.command === (process.env.EPUB_VRT_PYTHON || 'python')));
 });
@@ -39,7 +39,7 @@ test('nonzero renderer exit cannot pass even with a complete report and successf
   mkdirSync(join(options.output, 'epub/before/chromium'), {recursive: true});
   writeFileSync(stale, '{"complete":true}');
   const report = runEpubVrt({...options, run: (_command, args, cwd) => {
-    if (args[0] === 'scripts/render-epub.js' && args[2].endsWith('before/chromium')) {
+    if (args[0] === 'scripts/epub/render-epub.js' && args[2].endsWith('before/chromium')) {
       assert.equal(existsSync(stale), false);
       writeFileSync(stale, '{"complete":true}');
       return {status: 1};
