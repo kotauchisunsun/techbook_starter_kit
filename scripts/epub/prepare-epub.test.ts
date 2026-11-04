@@ -6,12 +6,12 @@ import { dirname, join, resolve } from 'node:path';
 import { createRequire } from 'node:module';
 import { spawnSync } from 'node:child_process';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
-import { prepareEpub, renderLicenses } from './prepare-epub.js';
-import { epubAssetDirectory, epubCoverEntries } from './epub-assets.js';
+import { prepareEpub, renderLicenses } from './prepare-epub.ts';
+import { epubAssetDirectory, epubCoverEntries } from './epub-assets.ts';
 
 const require = createRequire(import.meta.url);
 
-test('EPUB の差分準備では不要になった数式の生成素材だけを削除する', async () => {
+test("EPUB の差分準備では不要になった数式の生成素材だけを削除する", async () => {
   const outputRoot = mkdtempSync(join(tmpdir(), 'prepare-epub-obsolete-'));
   try {
     const generated = join(outputRoot, epubAssetDirectory);
@@ -25,13 +25,13 @@ test('EPUB の差分準備では不要になった数式の生成素材だけを
   } finally { rmSync(outputRoot, { recursive: true, force: true }); }
 });
 
-test('npm の EPUB ビルドは既存の出力を削除せず、設定された出力先を準備する', () => {
-  const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
-  assert.equal(pkg.scripts['prebuild:epub'], 'node scripts/epub/prepare-epub.js');
+test("npm の EPUB ビルドは既存の出力を削除せず、設定された出力先を準備する", () => {
+  const pkg = JSON.parse(readFileSync('package.json', 'utf8')) as { scripts: Record<string, string> };
+  assert.equal(pkg.scripts['prebuild:epub'], 'node --import tsx scripts/epub/prepare-epub.ts');
   const cwd = mkdtempSync(join(tmpdir(), 'prepare-epub-'));
   try {
-    const script = resolve('scripts/epub/prepare-epub.js');
-    const run = () => spawnSync(process.execPath, [script], { cwd, encoding: 'utf8' });
+    const script = resolve('scripts/epub/prepare-epub.ts');
+    const run = () => spawnSync(process.execPath, ['--import', import.meta.resolve('tsx'), script], { cwd, encoding: 'utf8' });
     let result = run();
     assert.equal(result.status, 0, result.stderr);
     assert(statSync(join(cwd, 'output/epub')).isDirectory());
@@ -46,7 +46,7 @@ test('npm の EPUB ビルドは既存の出力を削除せず、設定された�
   }
 });
 
-test('EPUB の表紙対応付けは順序・明示した画像ソース・ビットマップ表紙を保つ', () => {
+test("EPUB の表紙対応付けは順序・明示した画像ソース・ビットマップ表紙を保つ", () => {
   const config = {
     cover: { src: 'assets/front.SVG' },
     entry: [{ rel: 'cover' }, { rel: 'contents' }, 'chapter.md',
@@ -63,7 +63,7 @@ test('EPUB の表紙対応付けは順序・明示した画像ソース・ビッ
   assert.deepEqual(epubCoverEntries({ entry: [{ rel: 'cover' }, 'chapter.md'] }), []);
 });
 
-test('EPUB の準備は SVG 表紙の寸法と画素を保ってラスタライズし、ビットマップの元画像を変更しない', async () => {
+test("EPUB の準備は SVG 表紙の寸法と画素を保ってラスタライズし、ビットマップの元画像を変更しない", async () => {
   const root = mkdtempSync(join(tmpdir(), 'prepare-epub-covers-'));
   try {
     mkdirSync(join(root, 'assets/fonts'), { recursive: true });
@@ -98,7 +98,7 @@ test('EPUB の準備は SVG 表紙の寸法と画素を保ってラスタライ�
   }
 });
 
-test('EPUB の準備は移植可能なトークン用スタイルと参照されるすべての本文フォントを同梱する', async () => {
+test("EPUB の準備は移植可能なトークン用スタイルと参照されるすべての本文フォントを同梱する", async () => {
   const outputRoot = mkdtempSync(join(tmpdir(), 'prepare-epub-fonts-'));
   try {
     await prepareEpub({ outputRoot, source: { entry: [] } });
@@ -148,7 +148,7 @@ test('EPUB の準備は移植可能なトークン用スタイルと参照され
   }
 });
 
-test('EPUB のライセンス XHTML は見出しとライセンス全文を安全にエスケープする', () => {
+test("EPUB のライセンス XHTML は見出しとライセンス全文を安全にエスケープする", () => {
   // Compare the complete document rather than trying to blacklist HTML tags.
   // Keep expected encodings literal, independent of the production escape code.
   const cases = [
@@ -173,7 +173,7 @@ test('EPUB のライセンス XHTML は見出しとライセンス全文を安�
   }
 });
 
-test('EPUB の準備は同梱するすべてのスタイルとフォントのライセンス全文を含める', async () => {
+test("EPUB の準備は同梱するすべてのスタイルとフォントのライセンス全文を含める", async () => {
   const outputRoot = mkdtempSync(join(tmpdir(), 'prepare-epub-licenses-'));
   try {
     await prepareEpub({ outputRoot, source: { entry: [] } });
@@ -182,9 +182,9 @@ test('EPUB の準備は同梱するすべてのスタイルとフォントのラ
     const paths = [require.resolve('prismjs/LICENSE'), require.resolve('@mathjax/src/LICENSE'), require.resolve('@mathjax/src/LICENSE'),
       join(fontRoot, 'Noto_Sans_Mono/OFL.txt'), join(fontRoot, 'Noto_Sans_JP/OFL.txt')];
     const decoded = [...xhtml.matchAll(/<pre>([\s\S]*?)<\/pre>/g)].map(([, text]) =>
-      text.replace(/&(amp|lt|gt|quot|apos);/g, (_, entity) => ({
+      text.replace(/&(amp|lt|gt|quot|apos);/g, (_, entity: string) => ({
         amp: '&', lt: '<', gt: '>', quot: '"', apos: "'",
-      })[entity]));
+      } as Record<string, string>)[entity]));
     assert.deepEqual(decoded, paths.map(path => readFileSync(path, 'utf8')));
     for (const name of ['Prism', 'MathJax', 'MathJax TeX fonts (Apache-2.0)', 'Noto Sans Mono', 'Noto Sans JP']) {
       assert(xhtml.includes(`<h2>${name}</h2>`));
@@ -194,7 +194,7 @@ test('EPUB の準備は同梱するすべてのスタイルとフォントのラ
   }
 });
 
-test('SVG 表紙の変換は副題の字間を詰めず、文字間隔を保つ', async () => {
+test("SVG 表紙の変換は副題の字間を詰めず、文字間隔を保つ", async () => {
   const root = mkdtempSync(join(tmpdir(), 'prepare-epub-tracking-'));
   try {
     mkdirSync(join(root, 'assets/fonts'), { recursive: true });
