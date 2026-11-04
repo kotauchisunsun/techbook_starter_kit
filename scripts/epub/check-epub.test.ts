@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
-import { checkEpub } from './check-epub.js';
+import { checkEpub, type CheckOptions, type CheckResult } from './check-epub.ts';
 
-function fixture(result = { status: 0 }, env = {}) {
-  const calls = [];
-  return { calls, options: { env, exists: () => false, run: (...args) => { calls.push(args); return result; } } };
+function fixture(result: CheckResult = { status: 0 }, env: NodeJS.ProcessEnv = {}) {
+  const calls: Parameters<NonNullable<CheckOptions['run']>>[] = [];
+  return { calls, options: { env, exists: (_path: string) => false, run: (...args: Parameters<NonNullable<CheckOptions['run']>>) => { calls.push(args); return result; } } };
 }
 
 test('既定の出力を公式 EPUBCheck で検証する', () => {
@@ -36,7 +36,7 @@ test('不正な EPUB の検証失敗を伝え、後続ファイルの処理を�
 
 test('検証ツールや Java がない場合は導入手順を案内する', () => {
   for (const env of [{}, { EPUBCHECK_JAR: '/tools/epubcheck.jar' }]) {
-    assert.throws(() => checkEpub([], fixture({ error: { code: 'ENOENT' } }, env).options), /EPUBCHECK_JAR/);
+    assert.throws(() => checkEpub([], fixture({ error: Object.assign(new Error('not found'), { code: 'ENOENT' }) }, env).options), /EPUBCHECK_JAR/);
   }
 });
 
