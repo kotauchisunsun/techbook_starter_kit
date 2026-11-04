@@ -25,7 +25,7 @@
     "lint:shell": "uv run --locked --only-group lint shellcheck --norc scripts/setup.sh scripts/pdf/render-pdf-pages.sh scripts/vrt/run-epub-vrt.sh",
     "test:python": "uv run --locked --no-default-groups python scripts/epub/render-epub-mupdf.test.py",
     "check:epub:mupdf": "uv run --locked --only-group vrt python scripts/epub/render-epub-mupdf.py",
-    "test:vrt": "uv run --locked --only-group vrt node scripts/vrt/epub-vrt.integration.js",
+    "test:vrt": "uv run --locked --only-group vrt node --import tsx scripts/vrt/epub-vrt.integration.ts",
     "typecheck": "tsc --project scripts/tsconfig.json"
   },
   "dependencies": {

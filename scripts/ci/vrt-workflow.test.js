@@ -50,7 +50,7 @@ test('Dependabot設定はトークンを使うラベル付けワークフロー�
 test('baselineとcurrentのPDF比較、300dpi、診断用アーティファクトの7日間保持を維持する', () => {
   const build = job.steps.find(s => s.name === 'Build, render, and compare PDFs in Docker').run;
   for (const command of ['npm ci', 'npm run build', 'npm run build:print', 'npm run check:pdf',
-    'scripts/pdf/render-pdf-pages.sh', 'scripts/vrt/compare-pdf-pages.js']) assert.ok(build.includes(command));
+    'scripts/pdf/render-pdf-pages.sh', 'scripts/vrt/compare-pdf-pages.ts']) assert.ok(build.includes(command));
   assert.match(readFileSync('scripts/pdf/render-pdf-pages.sh', 'utf8'), /-r 300/);
   const uploads = job.steps.filter(s => s.uses?.startsWith('actions/upload-artifact@'));
   assert.equal(uploads.length, 2);
@@ -69,7 +69,7 @@ test('EPUBは独立してビルドした両ソースに同じhead側リーダー
   assert.match(setup, /uv sync --locked --only-group vrt/);
   assert.match(epub.run, /docker build -t techbook-epub-vrt - < scripts\/vrt\/epub-vrt\.Dockerfile/);
   assert.match(epub.run, /techbook-epub-vrt sh scripts\/vrt\/run-epub-vrt.sh/);
-  assert.match(setup, /node scripts\/vrt\/run-epub-vrt.js/);
+  assert.match(setup, /node --import tsx scripts\/vrt\/run-epub-vrt.ts/);
   assert.equal(job.steps.find(s => s.name === 'Combine PDF and EPUB results').if, 'always()');
   const smoke = yaml.load(readFileSync('.github/workflows/epub-vrt-smoke.yml', 'utf8'));
   assert.deepEqual(smoke.permissions, {contents: 'read'});
@@ -92,4 +92,19 @@ test('ホスト側のレポート統合と代替処理はDocker出力に書き�
   const original = readFileSync(output, 'utf8');
   assert.equal(execute().status, 0);
   assert.equal(readFileSync(output, 'utf8'), original);
+});
+
+test('tsx is bootstrapped before container orchestration and host report merging', () => {
+  const setup = readFileSync('scripts/vrt/run-epub-vrt.sh', 'utf8');
+  assert.ok(setup.indexOf('npm ci') < setup.indexOf('node --import tsx'));
+  const install = job.steps.findIndex(s => s.name === 'Install host report dependencies');
+  const combine = job.steps.findIndex(s => s.name === 'Combine PDF and EPUB results');
+  assert.ok(install >= 0 && install < combine);
+  const dockerSteps = job.steps.flatMap((step, index) => step.run?.includes('docker run') ? [index] : []);
+  assert.equal(dockerSteps.length, 2);
+  assert.ok(dockerSteps.every(index => install < index), 'Host npm ci must precede Docker anonymous volume mount creation');
+  assert.equal(job.steps[install].if, 'always()');
+  assert.equal(job.steps[install].run, 'npm ci');
+  assert.ok(job.steps.slice(0, install).some(s => s.uses?.startsWith('actions/setup-node@') && s.with['node-version'] === '24' && s.if === 'always()'));
+  assert.match(job.steps[combine].run, /node --import tsx scripts\/vrt\/combine-vrt-reports\.ts/);
 });
