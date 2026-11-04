@@ -1,7 +1,7 @@
 import config from './vivliostyle.config.js';
-import epubMath from './scripts/epub-math.js';
-import epubLayout from './scripts/epub-layout.js';
-import { epubCoverEntries } from './scripts/epub-assets.js';
+import epubMath from './scripts/epub/epub-math.js';
+import epubLayout from './scripts/epub/epub-layout.js';
+import { epubCoverEntries } from './scripts/epub/epub-assets.js';
 
 const covers = epubCoverEntries(config);
 

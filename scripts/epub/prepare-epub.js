@@ -3,12 +3,12 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import { Resvg } from '@resvg/resvg-js';
-import sourceConfig from '../vivliostyle.config.js';
-import config from '../vivliostyle.epub.config.js';
+import sourceConfig from '../../vivliostyle.config.js';
+import config from '../../vivliostyle.epub.config.js';
 import { epubAssetDirectory, epubCoverEntries } from './epub-assets.js';
 
 const require = createRequire(import.meta.url);
-const sourceRoot = fileURLToPath(new URL('../', import.meta.url));
+const sourceRoot = fileURLToPath(new URL('../../', import.meta.url));
 
 export function renderLicenses(licenses) {
   const escape = text => text.replace(/[&<>"']/g, character => ({

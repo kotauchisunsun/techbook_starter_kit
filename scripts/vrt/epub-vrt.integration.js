@@ -29,12 +29,12 @@ const original = await fixture('original', '#000000');
 const changed = await fixture('changed', '#ff0000');
 for (const [side, input] of [['before', original], ['after', original], ['changed', changed]]) {
   for (const browser of ['chromium', 'webkit']) {
-    run(process.execPath, ['scripts/render-epub.js', input, join(root, side, browser), `--browser=${browser}`, '--baseline']);
+    run(process.execPath, ['scripts/epub/render-epub.js', input, join(root, side, browser), `--browser=${browser}`, '--baseline']);
   }
-  run(process.env.EPUB_VRT_PYTHON || 'python', ['scripts/render-epub-mupdf.py', input, join(root, side, 'mupdf')]);
+  run(process.env.EPUB_VRT_PYTHON || 'python', ['scripts/epub/render-epub-mupdf.py', input, join(root, side, 'mupdf')]);
 }
-run(process.execPath, ['scripts/compare-epub-pages.js', join(root, 'before'), join(root, 'after'), join(root, 'same-diff'), join(root, 'same-report.json')]);
-run(process.execPath, ['scripts/compare-epub-pages.js', join(root, 'before'), join(root, 'changed'), join(root, 'changed-diff'), join(root, 'changed-report.json')], 1);
+run(process.execPath, ['scripts/vrt/compare-epub-pages.js', join(root, 'before'), join(root, 'after'), join(root, 'same-diff'), join(root, 'same-report.json')]);
+run(process.execPath, ['scripts/vrt/compare-epub-pages.js', join(root, 'before'), join(root, 'changed'), join(root, 'changed-diff'), join(root, 'changed-report.json')], 1);
 
 const differences = JSON.parse(await readFile(join(root, 'changed-report.json'), 'utf8')).errors;
 for (const reader of ['chromium', 'webkit', 'mupdf']) {

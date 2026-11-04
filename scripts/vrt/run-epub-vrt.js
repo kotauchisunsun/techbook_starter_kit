@@ -47,8 +47,8 @@ export function runEpubVrt({baseline, current, output, python = process.env.EPUB
       const input = join(source, 'output/epub/book.epub');
       const command = engine === 'mupdf' ? python : process.execPath;
       const args = engine === 'mupdf'
-        ? ['scripts/render-epub-mupdf.py', input, directory, '--widths=420,240', '--height=595', '--font-size=11', '--scale=2']
-        : ['scripts/render-epub.js', input, directory, `--browser=${engine}`, '--widths=600,360', '--height=780', '--baseline'];
+        ? ['scripts/epub/render-epub-mupdf.py', input, directory, '--widths=420,240', '--height=595', '--font-size=11', '--scale=2']
+        : ['scripts/epub/render-epub.js', input, directory, `--browser=${engine}`, '--widths=600,360', '--height=780', '--baseline'];
       execute(`${side === 'before' ? 'Baseline' : 'Current'} ${engine} render`, command, args, current);
     }
   }

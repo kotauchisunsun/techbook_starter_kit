@@ -115,7 +115,7 @@ test('CLI writes failure report and exits nonzero for a baseline without EPUB', 
   const { before, after, diff } = fixtures(t);
   rmSync(before, { recursive: true });
   const report = join(diff, 'report.json');
-  const result = spawnSync(process.execPath, ['scripts/compare-epub-pages.js', before, after, diff, report], { encoding: 'utf8' });
+  const result = spawnSync(process.execPath, ['scripts/vrt/compare-epub-pages.js', before, after, diff, report], { encoding: 'utf8' });
   assert.equal(result.status, 1);
   assert.equal(JSON.parse(readFileSync(report, 'utf8')).errors.length, 3);
 });

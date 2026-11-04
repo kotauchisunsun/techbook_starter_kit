@@ -143,7 +143,7 @@ export function compareEpubPages(before, after, diff) {
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const [before, after, diff, report] = process.argv.slice(2);
   if (!before || !after || !diff || !report || process.argv.length !== 6) {
-    console.error('Usage: node scripts/compare-epub-pages.js BEFORE AFTER DIFF REPORT_JSON');
+    console.error('Usage: node scripts/vrt/compare-epub-pages.js BEFORE AFTER DIFF REPORT_JSON');
     process.exitCode = 2;
   } else {
     let result;

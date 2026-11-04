@@ -120,7 +120,7 @@ jobs:
         with:
           result-encoding: string
           script: |
-            const {artifactDownloadLine, runDetails, retentionNote} = await import(`${process.env.GITHUB_WORKSPACE}/scripts/pr-artifact-notice.js`);
+            const {artifactDownloadLine, runDetails, retentionNote} = await import(`${process.env.GITHUB_WORKSPACE}/scripts/ci/pr-artifact-notice.js`);
             const lines = [];
             for (const [key, suffix, label] of [['PDF', 'pdf.pdf', '通常版 PDF'], ['PRINT_PDF', 'print-pdf.pdf', '印刷用 PDF'], ['EPUB', 'epub.epub', 'EPUB']]) {
               lines.push(await artifactDownloadLine({github, core, context,
@@ -158,22 +158,22 @@ jobs:
           mkdir -p tmp output/epub-stress
           cat > tmp/epub-stress.config.js <<'EOF'
           import config from '../vivliostyle.epub.config.js';
-          export default { ...config, title: 'EPUB stress fixture', workspaceDir: '.vivliostyle/epub-stress', entry: ['scripts/fixtures/epub-stress.md'], cover: undefined, output: [{path: 'output/epub-stress/stress.epub',format:'epub'}] };
+          export default { ...config, title: 'EPUB stress fixture', workspaceDir: '.vivliostyle/epub-stress', entry: ['scripts/epub/fixtures/epub-stress.md'], cover: undefined, output: [{path: 'output/epub-stress/stress.epub',format:'epub'}] };
           EOF
           npx vivliostyle build --config tmp/epub-stress.config.js
           npm run check:epub -- output/epub-stress/stress.epub
       - name: Render EPUB in narrow and wide readers
         if: ${{ !cancelled() }}
-        run: node scripts/render-epub.js output/epub/book.epub output/epub-visual/current
+        run: node scripts/epub/render-epub.js output/epub/book.epub output/epub-visual/current
       - name: Render long code and equations
         if: ${{ !cancelled() }}
-        run: node scripts/render-epub.js output/epub-stress/stress.epub output/epub-visual/stress
+        run: node scripts/epub/render-epub.js output/epub-stress/stress.epub output/epub-visual/stress
       - name: Render EPUB with WebKit
         if: ${{ !cancelled() }}
-        run: node scripts/render-epub.js output/epub/book.epub output/epub-visual/current-webkit --browser=webkit
+        run: node scripts/epub/render-epub.js output/epub/book.epub output/epub-visual/current-webkit --browser=webkit
       - name: Render long code and equations with WebKit
         if: ${{ !cancelled() }}
-        run: node scripts/render-epub.js output/epub-stress/stress.epub output/epub-visual/stress-webkit --browser=webkit
+        run: node scripts/epub/render-epub.js output/epub-stress/stress.epub output/epub-visual/stress-webkit --browser=webkit
       - name: Render EPUB and stress fixture with MuPDF
         if: ${{ !cancelled() }}
         run: |
