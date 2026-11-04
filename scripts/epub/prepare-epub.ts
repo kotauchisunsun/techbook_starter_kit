@@ -1,3 +1,5 @@
+import type { CoverConfig } from './epub-assets.ts';
+
 import { mkdir, copyFile, readFile, writeFile, rm } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -5,15 +7,15 @@ import { createRequire } from 'node:module';
 import { Resvg } from '@resvg/resvg-js';
 import sourceConfig from '../../vivliostyle.config.js';
 import config from '../../vivliostyle.epub.config.js';
-import { epubAssetDirectory, epubCoverEntries } from './epub-assets.js';
+import { epubAssetDirectory, epubCoverEntries } from './epub-assets.ts';
 
 const require = createRequire(import.meta.url);
 const sourceRoot = fileURLToPath(new URL('../../', import.meta.url));
 
-export function renderLicenses(licenses) {
-  const escape = text => text.replace(/[&<>"']/g, character => ({
+export function renderLicenses(licenses: { name: string; text: string }[]) {
+  const escape = (text: string) => text.replace(/[&<>"']/g, character => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;',
-  })[character]);
+  } as Record<string, string>)[character]);
   const sections = licenses.map(({ name, text }) =>
     `<section><h2>${escape(name)}</h2><pre>${escape(text)}</pre></section>`).join('\n');
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -26,7 +28,14 @@ ${sections}
 </body></html>\n`;
 }
 
-export async function prepareEpub({ root = sourceRoot, outputRoot = root, source = sourceConfig, outputs = config.output } = {}) {
+export interface PrepareEpubOptions {
+  root?: string;
+  outputRoot?: string;
+  source?: CoverConfig;
+  outputs?: { path: string }[];
+}
+
+export async function prepareEpub({ root = sourceRoot, outputRoot = root, source = sourceConfig, outputs = config.output }: PrepareEpubOptions = {}) {
   // Vivliostyle's EPUB writer requires the destination directory to exist.
   for (const output of outputs) await mkdir(dirname(resolve(outputRoot, output.path)), { recursive: true });
   const target = resolve(outputRoot, epubAssetDirectory);
@@ -36,7 +45,7 @@ export async function prepareEpub({ root = sourceRoot, outputRoot = root, source
   for (const name of ['temml.css', 'Temml.woff2', 'latinmodernmath.woff2']) {
     await rm(join(target, name), { force: true });
   }
-  const copy = (from, to) => copyFile(from, join(target, to));
+  const copy = (from: string, to: string) => copyFile(from, join(target, to));
   // Older EPUB engines reject attribute operators and pseudo-class selectors.
   // Keep Prism's token palette only; portable element/class layout is below.
   const prismCss = await readFile(require.resolve('prismjs/themes/prism-okaidia.css'), 'utf8');

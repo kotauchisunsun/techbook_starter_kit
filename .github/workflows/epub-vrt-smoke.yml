@@ -30,7 +30,7 @@ jobs:
           uv sync --locked --only-group vrt
           npm ci
           npx playwright install --with-deps chromium-headless-shell webkit
-      - run: node --test scripts/vrt/compare-epub-pages.test.js
+      - run: node --import tsx --test scripts/vrt/compare-epub-pages.test.ts
       - run: npm run test:vrt
       - uses: actions/upload-artifact@v7.0.2
         if: always()

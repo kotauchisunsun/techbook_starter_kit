@@ -1,5 +1,6 @@
-// 実リーダーによるスモークテスト。テンプレート利用者の原稿には依存しない。
-// Playwright のブラウザーと ImageMagick の導入後に npm run test:vrt で実行する。
+import type {ComparisonReport} from './types.ts';
+// Real reader smoke test. No dependency on the template author's manuscript.
+// Run with npm run test:vrt after installing Playwright browsers and ImageMagick.
 import assert from 'node:assert/strict';
 import {mkdir, writeFile, readFile} from 'node:fs/promises';
 import {resolve, join} from 'node:path';
@@ -10,7 +11,7 @@ const root = resolve(process.argv[2] || 'output/epub-vrt-smoke');
 await mkdir(root, {recursive: true});
 // Text color is supported by all three readers; MuPDF ignores this fixture's
 // former div background fill, so it was not a valid cross-reader change probe.
-async function fixture(name, color) {
+async function fixture(name: string, color: string) {
   const zip = new JSZip();
   zip.file('mimetype', 'application/epub+zip', {compression: 'STORE'});
   zip.file('META-INF/container.xml', '<?xml version="1.0"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="book.opf" media-type="application/oebps-package+xml"/></rootfiles></container>');
@@ -21,7 +22,7 @@ async function fixture(name, color) {
   await writeFile(path, await zip.generateAsync({type: 'nodebuffer'}));
   return path;
 }
-function run(command, args, expected = 0) {
+function run(command: string, args: string[], expected = 0) {
   const result = spawnSync(command, args, {stdio: 'inherit'});
   assert.equal(result.status, expected, `${command} ${args.join(' ')}: ${result.error?.message || ''}`);
 }
@@ -29,17 +30,17 @@ const original = await fixture('original', '#000000');
 const changed = await fixture('changed', '#ff0000');
 for (const [side, input] of [['before', original], ['after', original], ['changed', changed]]) {
   for (const browser of ['chromium', 'webkit']) {
-    run(process.execPath, ['scripts/epub/render-epub.js', input, join(root, side, browser), `--browser=${browser}`, '--baseline']);
+    run('npm', ['run', 'check:epub:render', '--', input, join(root, side, browser), `--browser=${browser}`, '--baseline']);
   }
   run(process.env.EPUB_VRT_PYTHON || 'python', ['scripts/epub/render-epub-mupdf.py', input, join(root, side, 'mupdf')]);
 }
-run(process.execPath, ['scripts/vrt/compare-epub-pages.js', join(root, 'before'), join(root, 'after'), join(root, 'same-diff'), join(root, 'same-report.json')]);
-run(process.execPath, ['scripts/vrt/compare-epub-pages.js', join(root, 'before'), join(root, 'changed'), join(root, 'changed-diff'), join(root, 'changed-report.json')], 1);
+run(process.execPath, ['--import', 'tsx', 'scripts/vrt/compare-epub-pages.ts', join(root, 'before'), join(root, 'after'), join(root, 'same-diff'), join(root, 'same-report.json')]);
+run(process.execPath, ['--import', 'tsx', 'scripts/vrt/compare-epub-pages.ts', join(root, 'before'), join(root, 'changed'), join(root, 'changed-diff'), join(root, 'changed-report.json')], 1);
 
-const differences = JSON.parse(await readFile(join(root, 'changed-report.json'), 'utf8')).errors;
+const {errors: differences}: ComparisonReport = JSON.parse(await readFile(join(root, 'changed-report.json'), 'utf8'));
 for (const reader of ['chromium', 'webkit', 'mupdf']) {
-  assert(differences.some(error => error.page.startsWith(`EPUB ${reader}/`) && /pixels changed/.test(error.reason) && error.images?.diff), `${reader} must detect a real pixel difference`);
+  assert(differences.some(error => error.page?.startsWith(`EPUB ${reader}/`) && /pixels changed/.test(error.reason) && error.images?.diff), `${reader} must detect a real pixel difference`);
 }
 assert(differences.every(error => /pixels changed/.test(error.reason)), 'A rendering failure must not satisfy the deliberate-change smoke test');
 
-console.log('実 EPUB リーダー: 同一内容の繰り返し描画は一致し、意図的な表示変更は比較に失敗する。');
+console.log("実 EPUB リーダー: 同一内容の繰り返し描画は一致し、意図的な表示変更は比較に失敗する。");

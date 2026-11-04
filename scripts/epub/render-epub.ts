@@ -4,10 +4,78 @@ import { createRequire } from 'node:module';
 import { basename, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const require = createRequire(import.meta.url);
-const usage = 'Usage: node scripts/epub/render-epub.js INPUT.epub OUTPUT_DIRECTORY [--baseline] [--browser=chromium|webkit] [--widths=600,360] [--height=780] [--max-pages=1000]';
 
-export function parseArguments(args) {
+type BrowserName = 'chromium' | 'webkit';
+export interface RenderOptions {
+  input: string; output: string; widths: number[]; height: number; maxPages: number;
+  baseline: boolean; browser?: BrowserName;
+}
+export interface ReaderLocation {
+  start: { index: number; cfi: string; displayed?: { page: number; total: number } };
+  end: { index: number; cfi: string; displayed?: { page: number; total: number } };
+}
+export interface SpineItem { index: number; href: string; linear?: string }
+interface Rect { left: number; right: number; width: number; height: number }
+interface Box extends Rect { top: number; bottom: number }
+interface Geometry { origin: number; columnWidth: number; stride: number }
+interface Token { classes: string[]; color: string }
+interface FontInfo { family: string; status: string; weight: string }
+export interface Diagnostic {
+  type: string; spineIndex?: number; index?: number; alt?: string;
+  fonts?: FontInfo[]; count?: number; fragments?: Box[]; geometry?: Geometry;
+}
+interface ContentEntry {
+  index: number; visible: boolean; fontFamily: string; fontSize: string;
+  color: string; backgroundColor: string; text: string; overflow: Box[];
+  tokenColors?: string[]; textContrast?: number | null;
+  tokenContrasts?: { color: string; ratio: number | null }[];
+  svg?: Box[]; superscripts?: { base: Box | null; exponent: Box | null }[];
+  tables?: { rows: { rect: Box; cells: Box[] }[] }[]; fragments?: Box[];
+}
+interface DocumentInfo {
+  spineIndex: number; geometry: Geometry; headings: string[];
+  images: { index: number; alt: string; loaded: boolean; naturalWidth: number; naturalHeight: number; visible: boolean }[];
+  captions: { text: string; visible: boolean; caption: Box; image: Box | null }[];
+  code: ContentEntry[]; math: ContentEntry[];
+  bodyFont: { computedFamily: string; size: string; faces: FontInfo[]; glyphFontVerified: boolean };
+}
+interface Snapshot { location: ReaderLocation; documents: DocumentInfo[]; diagnostics: Diagnostic[] }
+type Captured<T> = T & { sequence: number; spineIndex: number; href: string; file: string };
+interface ViewportReport { width: number; height: number; spine: SpineItem[]; pages: Captured<Snapshot>[]; complete: boolean }
+export interface ReportStatus {
+  complete: boolean; baseline: boolean; errors: string[];
+  viewports: { pages: { diagnostics: Diagnostic[] }[] }[];
+}
+interface RenderReport extends ReportStatus {
+  input: string; reader: string; browserEngine: BrowserName; browser?: string; viewports: ViewportReport[];
+}
+// EPUB.js exposes additional browser APIs not described by its bundled declarations.
+interface ReaderRendition {
+  getContents(): { document: Document; window: Window; sectionIndex: number }[];
+  display(href?: string): Promise<unknown>; next(): Promise<unknown>;
+  currentLocation(): ReaderLocation | Promise<ReaderLocation>;
+  on(event: 'relocated', listener: () => void): void;
+  off(event: 'relocated', listener: () => void): void;
+  reportLocation(): void;
+}
+interface ReaderBook {
+  ready: Promise<unknown>; spine: { spineItems: SpineItem[] };
+  renderTo(element: HTMLElement, options: {
+    width: number; height: number; flow: string; manager: string; spread: string;
+    allowScriptedContent: boolean; allowPopups: boolean;
+  }): ReaderRendition;
+}
+declare global {
+  interface Window {
+    ePub(input: string, options: { replacements: string }): ReaderBook;
+    epubQa: { book: ReaderBook; rendition: ReaderRendition; settle(): Promise<void>; move(method: 'display' | 'next', href?: string): Promise<void> };
+  }
+}
+
+const require = createRequire(import.meta.url);
+const usage = 'Usage: node --import tsx scripts/epub/render-epub.ts INPUT.epub OUTPUT_DIRECTORY [--baseline] [--browser=chromium|webkit] [--widths=600,360] [--height=780] [--max-pages=1000]';
+
+export function parseArguments(args: string[]): RenderOptions {
   const positional = args.filter(arg => !arg.startsWith('--'));
   if (positional.length !== 2) throw new Error(usage);
   const options = { input: resolve(positional[0]), output: resolve(positional[1]), widths: [600, 360], height: 780, maxPages: 1000, baseline: false, browser: 'chromium' };
@@ -26,34 +94,34 @@ export function parseArguments(args) {
   }
   validateBrowser(options.browser);
   options.widths = [...new Set(options.widths)];
-  return options;
+  return { ...options, browser: validateBrowser(options.browser) };
 }
 
-export function validateBrowser(name = 'chromium') {
-  if (!['chromium', 'webkit'].includes(name)) throw new Error(`Unsupported browser: ${name}. Use chromium or webkit.`);
+export function validateBrowser(name = 'chromium'): BrowserName {
+  if (name !== 'chromium' && name !== 'webkit') throw new Error(`Unsupported browser: ${name}. Use chromium or webkit.`);
   return name;
 }
 
-export async function launchReaderBrowser(playwright, name = 'chromium') {
+export async function launchReaderBrowser<T>(playwright: Record<BrowserName, { launch(options: { headless: boolean }): Promise<T> }>, name = 'chromium') {
   return playwright[validateBrowser(name)].launch({ headless: true });
 }
 
 // Conservative contrast probe: unknown color spaces/translucency are reported
 // as unavailable rather than guessed. This is informational, not a QA gate.
-export function contrastRatio(foreground, background) {
-  const luminance = color => {
+export function contrastRatio(foreground: string, background: string) {
+  const { luminance } = { luminance(color: string) {
     const match = /^rgba?\(\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)(?:\s*,\s*([\d.]+))?\s*\)$/.exec(color);
     if (!match || (match[4] !== undefined && Number(match[4]) !== 1)) return null;
     const rgb = match.slice(1, 4).map(Number);
     if (rgb.some(value => value > 255)) return null;
     return rgb.map(value => value / 255).map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4)
       .reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0);
-  };
+  } };
   const a = luminance(foreground), b = luminance(background);
   return a === null || b === null ? null : (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
 }
 
-export function locationKey(location) {
+export function locationKey(location: Partial<ReaderLocation> | null | undefined) {
   if (!location?.start || !location?.end) throw new Error('Reader did not report a page location.');
   return JSON.stringify([location.start.index, location.start.cfi, location.start.displayed?.page,
     location.end.cfi, location.end.displayed?.page]);
@@ -61,28 +129,32 @@ export function locationKey(location) {
 
 // Visit each spine item explicitly, including non-linear cover/navigation pages.
 // A hard cap and repeated-location detection turn pagination bugs into failures.
-export async function captureSpine(adapter, spine, maxPages = 1000) {
-  const pages = [];
+export async function captureSpine<T extends { location: ReaderLocation }>(adapter: {
+  display(href: string): Promise<unknown>; next(): Promise<unknown>; snapshot(): Promise<T>;
+  screenshot(file: string): Promise<unknown>; record?(pages: Captured<T>[]): Promise<unknown>;
+}, spine: SpineItem[], maxPages = 1000) {
+  const pages: Captured<T>[] = [];
   for (const section of spine) {
     await adapter.display(section.href);
     const seen = new Set();
     while (true) {
-      const page = await adapter.snapshot();
-      const { location } = page;
+      const snapshot = await adapter.snapshot();
+      const { location } = snapshot;
       const key = locationKey(location);
       if (location.start.index !== section.index) throw new Error(`Navigation skipped spine item ${section.href}.`);
       if (seen.has(key)) throw new Error(`Pagination stopped advancing in ${section.href}.`);
       if (pages.length >= maxPages) throw new Error(`Exceeded ${maxPages} pages; possible pagination loop.`);
       seen.add(key);
-      page.sequence = pages.length + 1;
-      page.spineIndex = section.index;
-      page.href = section.href;
-      page.file = `page-${String(page.sequence).padStart(4, '0')}.png`;
+      const sequence = pages.length + 1;
+      const page = Object.assign(snapshot, {
+        sequence, spineIndex: section.index, href: section.href,
+        file: `page-${String(sequence).padStart(4, '0')}.png`,
+      });
       await adapter.screenshot(page.file);
       pages.push(page);
       await adapter.record?.(pages);
       const displayed = location.end.displayed;
-      if (location.end.index === section.index && displayed?.total > 0 && displayed.page >= displayed.total) break;
+      if (location.end.index === section.index && displayed && displayed.total > 0 && displayed.page >= displayed.total) break;
       await adapter.next();
     }
   }
@@ -91,8 +163,8 @@ export async function captureSpine(adapter, spine, maxPages = 1000) {
 
 // Only exact routes are served. EPUB content is loaded from the supplied archive,
 // not from an unrestricted working-directory HTTP server.
-export async function serveReader(input, dependencies = {}) {
-  const resources = new Map([
+export async function serveReader(input: string, dependencies: { epub?: string; jszip?: string } = {}) {
+  const resources = new Map<string, [string, Buffer]>([
     ['/book.epub', ['application/epub+zip', await readFile(input)]],
     ['/epub.min.js', ['text/javascript', await readFile(dependencies.epub ?? require.resolve('epubjs/dist/epub.min.js'))]],
     ['/jszip.min.js', ['text/javascript', await readFile(dependencies.jszip ?? require.resolve('jszip/dist/jszip.min.js'))]],
@@ -101,37 +173,40 @@ export async function serveReader(input, dependencies = {}) {
       <script src="/jszip.min.js"></script><script src="/epub.min.js"></script></head><body><div id="reader"></div></body></html>`)]],
   ]);
   const server = createServer((request, response) => {
-    const resource = resources.get(new URL(request.url, 'http://localhost').pathname);
-    if (!resource || !['GET', 'HEAD'].includes(request.method)) {
+    const resource = resources.get(new URL(request.url ?? '/', 'http://localhost').pathname);
+    if (!resource || !['GET', 'HEAD'].includes(request.method ?? '')) {
       response.writeHead(404); response.end(); return;
     }
     response.writeHead(200, { 'Content-Type': resource[0], 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
     response.end(request.method === 'HEAD' ? undefined : resource[1]);
   });
-  await new Promise((resolveListen, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolveListen); });
+  await new Promise<void>((resolveListen, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolveListen); });
+  const address = server.address();
+  if (!address || typeof address === 'string') throw new Error('Reader server has no TCP address.');
   return {
-    url: `http://127.0.0.1:${server.address().port}`,
-    close: () => new Promise((resolveClose, reject) => { server.close(error => error ? reject(error) : resolveClose()); server.closeAllConnections(); }),
+    url: `http://127.0.0.1:${address.port}`,
+    close: () => new Promise<void>((resolveClose, reject) => { server.close(error => error ? reject(error) : resolveClose()); server.closeAllConnections(); }),
   };
 }
 
+// Object-method helpers avoid tsx injecting closure-bound function-name helpers.
 // Runs inside the test browser. No scripts from the EPUB are enabled.
-export async function initializeReader({ width, height }) {
-  const timeout = (promise, label) => new Promise((resolvePromise, reject) => {
+export async function initializeReader({ width, height }: { width: number; height: number }) {
+  const { timeout } = { timeout<T>(promise: PromiseLike<T>, label: string) { return new Promise<T>((resolvePromise, reject) => {
     const timer = setTimeout(() => reject(new Error(`${label} timed out`)), 30000);
     Promise.resolve(promise).then(value => { clearTimeout(timer); resolvePromise(value); }, error => { clearTimeout(timer); reject(error); });
-  });
+  }); } };
   // Use EPUB.js's supported data-URL replacements so each archived resource
   // remains self-contained across both Chromium and WebKit.
   const book = window.ePub('/book.epub', { replacements: 'base64' });
   await timeout(book.ready, 'Opening EPUB');
-  const reader = document.getElementById('reader');
+  const reader = document.getElementById('reader')!;
   reader.style.width = `${width}px`; reader.style.height = `${height}px`;
   const rendition = book.renderTo(reader, {
     width, height, flow: 'paginated', manager: 'default', spread: 'none',
     allowScriptedContent: false, allowPopups: false,
   });
-  const settle = async () => {
+  const { settle } = { async settle() {
     for (const contents of rendition.getContents()) {
       const doc = contents.document;
       await timeout(doc.fonts.ready, 'Embedded fonts');
@@ -141,24 +216,24 @@ export async function initializeReader({ width, height }) {
       }), 'Embedded image')));
     }
     await new Promise(resolveFrame => requestAnimationFrame(() => requestAnimationFrame(resolveFrame)));
-  };
-  const move = async (method, href) => {
+  } };
+  const { move } = { async move(method: 'display' | 'next', href?: string) {
     await timeout(rendition[method](href), `Reader ${method}`);
     await settle();
     // EPUB.js queues location reporting independently of display/next.
-    await timeout(new Promise(resolveLocation => {
-      const listener = () => { rendition.off('relocated', listener); resolveLocation(); };
+    await timeout(new Promise<void>(resolveLocation => {
+      const { listener } = { listener() { rendition.off('relocated', listener); resolveLocation(); } };
       rendition.on('relocated', listener);
       rendition.reportLocation();
     }), 'Reader location');
-  };
+  } };
   window.epubQa = { book, rendition, settle, move };
   return book.spine.spineItems.map(item => ({ index: item.index, href: item.href, linear: item.linear }));
 }
 
 // Range fragments are checked against their own column, not against a whole
 // chapter's scrollWidth. A multi-page code block is therefore not a false overflow.
-export function overflowingFragments(rects, { origin, columnWidth, stride }, tolerance = 3) {
+export function overflowingFragments<T extends Rect>(rects: T[], { origin, columnWidth, stride }: Geometry, tolerance = 3) {
   if (![origin, columnWidth, stride].every(Number.isFinite) || columnWidth <= 0 || stride <= 0) return [];
   return rects.filter(rect => {
     if (rect.width <= 0 || rect.height <= 0) return false;
@@ -168,17 +243,17 @@ export function overflowingFragments(rects, { origin, columnWidth, stride }, tol
   });
 }
 
-export function reportFailed(report) {
+export function reportFailed(report: ReportStatus) {
   return !report.complete || report.errors.length > 0 || (!report.baseline
     && report.viewports.some(viewport => viewport.pages.some(page => page.diagnostics.length > 0)));
 }
 
-export function missingTokenColors(tokens) {
+export function missingTokenColors(tokens: Token[]) {
   // Only compare token classes with unconditional, known Okaidia colors.
   // Punctuation/operators and numbers/booleans each share a color, so token
   // count alone cannot distinguish missing CSS from valid single-color code.
   // Context-dependent classes such as string are deliberately not inferred.
-  const groups = {
+  const groups: Record<string, string> = {
     punctuation: 'plain', operator: 'plain',
     keyword: 'keyword', number: 'number', boolean: 'number',
     function: 'function', 'class-name': 'function',
@@ -193,16 +268,16 @@ export function missingTokenColors(tokens) {
     && new Set(classified.map(token => token.color)).size === 1;
 }
 
-async function snapshotReader({ overflowSource, highlightSource, contrastSource }) {
-  const overflow = (0, eval)(`(${overflowSource})`);
-  const unhighlighted = (0, eval)(`(${highlightSource})`);
-  const contrast = (0, eval)(`(${contrastSource})`);
+export async function snapshotReader({ overflowSource, highlightSource, contrastSource }: { overflowSource: string; highlightSource: string; contrastSource: string }): Promise<Snapshot> {
+  const overflow: typeof overflowingFragments = (0, eval)(`(${overflowSource})`);
+  const unhighlighted: typeof missingTokenColors = (0, eval)(`(${highlightSource})`);
+  const contrast: typeof contrastRatio = (0, eval)(`(${contrastSource})`);
   const { rendition, settle } = window.epubQa;
   await settle();
   const location = await rendition.currentLocation();
-  const readerRect = document.getElementById('reader').getBoundingClientRect();
-  const diagnostics = [];
-  const documents = [];
+  const readerRect = document.getElementById('reader')!.getBoundingClientRect();
+  const diagnostics: Diagnostic[] = [];
+  const documents: DocumentInfo[] = [];
   for (const contents of rendition.getContents()) {
     const doc = contents.document;
     const style = contents.window.getComputedStyle(doc.body);
@@ -210,14 +285,14 @@ async function snapshotReader({ overflowSource, highlightSource, contrastSource 
     const gap = parseFloat(style.columnGap) || 0;
     // CSS column-width is a preferred width. EPUB.js also applies border-box
     // padding, so the used column width can be smaller than that CSS value.
-    const availableWidth = doc.body.clientWidth - parseFloat(style.paddingLeft || 0) - parseFloat(style.paddingRight || 0);
+    const availableWidth = doc.body.clientWidth - parseFloat(style.paddingLeft || '0') - parseFloat(style.paddingRight || '0');
     const columnWidth = Math.min(parseFloat(style.columnWidth) || availableWidth, availableWidth);
-    const geometry = { origin: bodyRect.left + parseFloat(style.paddingLeft || 0), columnWidth, stride: columnWidth + gap };
-    const frameRect = contents.window.frameElement.getBoundingClientRect();
-    const rectData = rect => ({ left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height });
-    const visible = element => [...element.getClientRects()].some(rect => rect.right + frameRect.left > readerRect.left
-      && rect.left + frameRect.left < readerRect.right && rect.bottom + frameRect.top > readerRect.top && rect.top + frameRect.top < readerRect.bottom);
-    const info = { spineIndex: contents.sectionIndex, geometry, headings: [], images: [], captions: [], code: [], math: [],
+    const geometry = { origin: bodyRect.left + parseFloat(style.paddingLeft || '0'), columnWidth, stride: columnWidth + gap };
+    const frameRect = contents.window.frameElement!.getBoundingClientRect();
+    const { rectData } = { rectData(rect: DOMRect) { return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height }; } };
+    const { visible } = { visible(element: Element) { return [...element.getClientRects()].some(rect => rect.right + frameRect.left > readerRect.left
+      && rect.left + frameRect.left < readerRect.right && rect.bottom + frameRect.top > readerRect.top && rect.top + frameRect.top < readerRect.bottom); } };
+    const info: DocumentInfo = { spineIndex: contents.sectionIndex, geometry, headings: [], images: [], captions: [], code: [], math: [],
       // Computed CSS and loaded font faces do not prove which font rendered each
       // glyph. Keep this limitation explicit across Chromium and WebKit.
       bodyFont: { computedFamily: style.fontFamily, size: style.fontSize,
@@ -228,16 +303,16 @@ async function snapshotReader({ overflowSource, highlightSource, contrastSource 
     for (const caption of doc.querySelectorAll('figcaption, .epub-caption')) {
       const figure = caption.closest('figure, .epub-figure');
       const image = figure?.querySelector('img,svg');
-      info.captions.push({ text: caption.textContent.trim().slice(0, 160), visible: visible(caption),
+      info.captions.push({ text: (caption.textContent ?? '').trim().slice(0, 160), visible: visible(caption),
         caption: rectData(caption.getBoundingClientRect()), image: image ? rectData(image.getBoundingClientRect()) : null });
     }
-    for (const heading of doc.querySelectorAll('h1,h2,h3')) if (visible(heading)) info.headings.push(heading.textContent.trim());
+    for (const heading of doc.querySelectorAll('h1,h2,h3')) if (visible(heading)) info.headings.push((heading.textContent ?? '').trim());
     for (const [index, img] of [...doc.images].entries()) {
       const image = { index, alt: img.alt, loaded: img.complete && img.naturalWidth > 0, naturalWidth: img.naturalWidth, naturalHeight: img.naturalHeight, visible: visible(img) };
       info.images.push(image);
       if (!image.loaded) diagnostics.push({ type: 'missing-image', spineIndex: contents.sectionIndex, index, alt: img.alt });
     }
-    for (const kind of ['code', 'math']) {
+    for (const kind of ['code', 'math'] as const) {
       const nodes = kind === 'code' ? doc.querySelectorAll('pre') : doc.querySelectorAll('math, [role="math"], .epub-math');
       for (const [index, node] of [...nodes].entries()) {
         const range = doc.createRange(); range.selectNodeContents(node);
@@ -245,8 +320,8 @@ async function snapshotReader({ overflowSource, highlightSource, contrastSource 
         const fragments = [...range.getClientRects()].map(rectData).concat(svgBoxes);
         const oversize = overflow(fragments, geometry);
         const computed = contents.window.getComputedStyle(node);
-        const entry = { index, visible: visible(node), fontFamily: computed.fontFamily, fontSize: computed.fontSize,
-          color: computed.color, backgroundColor: computed.backgroundColor, text: (node.getAttribute('aria-label') || node.textContent).trim().slice(0, 160), overflow: oversize.slice(0, 5) };
+        const entry: ContentEntry = { index, visible: visible(node), fontFamily: computed.fontFamily, fontSize: computed.fontSize,
+          color: computed.color, backgroundColor: computed.backgroundColor, text: (node.getAttribute('aria-label') || node.textContent || '').trim().slice(0, 160), overflow: oversize.slice(0, 5) };
         if (kind === 'code') {
           const tokens = [...node.querySelectorAll('.token')].map(token => ({
             classes: [...token.classList], color: contents.window.getComputedStyle(token).color,
@@ -282,9 +357,9 @@ async function snapshotReader({ overflowSource, highlightSource, contrastSource 
   return { location, documents, diagnostics };
 }
 
-export async function renderEpub(options) {
+export async function renderEpub(options: RenderOptions) {
   await mkdir(options.output, { recursive: true });
-  const report = { input: basename(options.input), reader: 'EPUB.js 0.3.93', browserEngine: options.browser ?? 'chromium', baseline: options.baseline, viewports: [], errors: [], complete: false };
+  const report: RenderReport = { input: basename(options.input), reader: 'EPUB.js 0.3.93', browserEngine: options.browser ?? 'chromium', baseline: options.baseline, viewports: [], errors: [], complete: false };
   const saveReport = () => writeFile(join(options.output, 'report.json'), `${JSON.stringify(report, null, 2)}\n`);
   let server;
   let browser;
@@ -298,13 +373,13 @@ export async function renderEpub(options) {
       await mkdir(directory, { recursive: true });
       // Remove only this tool's stale images, never arbitrary user files.
       for (const file of await readdir(directory)) if (/^page-\d+\.png$/.test(file)) await rm(join(directory, file));
-      const viewport = { width, height: options.height, spine: [], pages: [], complete: false };
+      const viewport: ViewportReport = { width, height: options.height, spine: [], pages: [], complete: false };
       report.viewports.push(viewport);
       const context = await browser.newContext({ viewport: { width, height: options.height }, deviceScaleFactor: 1 });
       try {
         await context.route('**/*', route => {
           const url = route.request().url();
-          if (url.startsWith(`${server.url}/`) || /^(blob:|data:|about:)/.test(url)) return route.continue();
+          if (url.startsWith(`${server!.url}/`) || /^(blob:|data:|about:)/.test(url)) return route.continue();
           report.errors.push(`External resource blocked: ${url}`);
           return route.abort();
         });
@@ -329,7 +404,7 @@ export async function renderEpub(options) {
     }
     report.complete = true;
   } catch (error) {
-    report.errors.push(error.stack || error.message);
+    report.errors.push(error instanceof Error ? error.stack || error.message : String(error));
   } finally {
     await browser?.close();
     await server?.close();
@@ -344,9 +419,9 @@ export async function renderEpub(options) {
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   let options;
   try { options = parseArguments(process.argv.slice(2)); }
-  catch (error) { console.error(error.message); process.exitCode = 2; }
+  catch (error) { console.error(error instanceof Error ? error.message : String(error)); process.exitCode = 2; }
   if (options) {
     try { const { failed } = await renderEpub(options); if (failed) process.exitCode = 1; }
-    catch (error) { console.error(error.stack || error.message); process.exitCode = 1; }
+    catch (error) { console.error(error instanceof Error ? error.stack || error.message : String(error)); process.exitCode = 1; }
   }
 }

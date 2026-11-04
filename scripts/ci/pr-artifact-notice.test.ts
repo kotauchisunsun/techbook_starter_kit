@@ -1,25 +1,26 @@
+import type {Artifact, NoticeOptions, Repo} from './pr-artifact-notice.ts';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import * as notices from './pr-artifact-notice.js';
+import * as notices from './pr-artifact-notice.ts';
 const {formatExpiryDate, artifactDownloadLine, runDetails} = notices;
 const context = {repo: {owner: 'owner', repo: 'repo'}, runId: 123, runNumber: 42};
 const env = {GITHUB_SERVER_URL: 'https://github.com', GITHUB_RUN_ATTEMPT: '2'};
 const url = 'https://github.com/owner/repo/actions/runs/123/artifacts/456';
 
-function fixture(overrides = {}, status) {
-  const requested = [], warnings = [];
+function fixture(overrides: Partial<Artifact> = {}, status?: number) {
+  const requested: (Repo & {artifact_id: number})[] = [], warnings: string[] = [];
   const artifact = {id: 456, name: 'pr-26-pdf.pdf', workflow_run: {id: 123}, expired: false,
     expires_at: '2026-11-02T15:30:00Z', ...overrides};
-  const github = {rest: {actions: {getArtifact: async args => {
+  const github = {rest: {actions: {getArtifact: async (args: Repo & {artifact_id: number}) => {
     requested.push(args);
     if (status) throw Object.assign(new Error('API error'), {status});
     return {data: artifact};
   }}}};
-  const core = {warning: message => warnings.push(message)};
+  const core = {warning: (message: string) => warnings.push(message)};
   const args = {github, core, context, artifactId: '456', artifactUrl: url,
     expectedName: 'pr-26-pdf.pdf', label: '通常版 PDF', now: Date.parse('2026-10-26T01:00:00Z')};
-  return {args, requested, warnings, line: extra => artifactDownloadLine({...args, ...extra})};
+  return {args, requested, warnings, line: (extra: Partial<NoticeOptions> = {}) => artifactDownloadLine({...args, ...extra})};
 }
 
 test('有効期限はUTCの日付・年の境界をまたいでもゼロ埋めしたJSTで表示する', () => {
@@ -86,7 +87,7 @@ test('実行詳細は該当するワークフローの実行試行に直接リ�
 });
 
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
-function workflowScript(path) {
+function workflowScript(path: string) {
   const lines = readFileSync(path, 'utf8').split('          script: |\n')[1].split('\n');
   const end = lines.findIndex(line => line.trim() && !line.startsWith('            '));
   return lines.slice(0, end < 0 ? lines.length : end).map(line => line.slice(12)).join('\n');
@@ -95,8 +96,8 @@ function workflowScript(path) {
 test('PDF・EPUBワークフローは個別のアップロードIDとURLを渡し、アーティファクトごとの有効期限を表示する', async () => {
   const script = workflowScript('.github/workflows/pr.yml');
   const execute = new AsyncFunction('github', 'core', 'context', 'process', script);
-  const seen = [];
-  const github = {rest: {actions: {getArtifact: async ({artifact_id}) => {
+  const seen: number[] = [];
+  const github = {rest: {actions: {getArtifact: async ({artifact_id}: {artifact_id: 456 | 789 | 987}) => {
     seen.push(artifact_id);
     return {data: {id: artifact_id, workflow_run: {id: 123},
       name: {456: 'pr-26-pdf.pdf', 789: 'pr-26-print-pdf.pdf', 987: 'pr-26-epub.epub'}[artifact_id],

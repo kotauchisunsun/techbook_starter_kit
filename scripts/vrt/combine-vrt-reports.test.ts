@@ -4,7 +4,7 @@ import {mkdtempSync, mkdirSync, readFileSync, existsSync, writeFileSync, rmSync}
 import {tmpdir} from 'node:os';
 import {spawnSync} from 'node:child_process';
 import {join} from 'node:path';
-import {combineReports} from './combine-vrt-reports.js';
+import {combineReports} from './combine-vrt-reports.ts';
 
 test('両形式のレポートを必須とし、差分は失敗として保持する', () => {
   const dir = mkdtempSync(join(tmpdir(), 'combine-vrt-'));
@@ -32,10 +32,22 @@ test('明示したランナー所有の出力先を使い、コンテナーの�
   for (const format of ['pdf', 'epub']) writeFileSync(join(source, `${format}-report.json`), '{"errors":[]}');
   assert.deepEqual(combineReports(source, output), {errors: []});
   assert.deepEqual(JSON.parse(readFileSync(output, 'utf8')), {errors: []});
-  const cli = spawnSync(process.execPath, ['scripts/vrt/combine-vrt-reports.js', source, output], {encoding: 'utf8'});
+  const cli = spawnSync(process.execPath, ['--import', 'tsx', 'scripts/vrt/combine-vrt-reports.ts', source, output], {encoding: 'utf8'});
   assert.equal(cli.status, 0, cli.stderr);
   assert.deepEqual(JSON.parse(readFileSync(output, 'utf8')), {errors: []});
   const absent = join(root, 'absent-output');
   assert.equal(combineReports(absent, output).errors.length, 2);
   assert.equal(existsSync(absent), false);
+});
+
+test('JSON解析後も不正なレポート構造を明示的な失敗として扱う', t => {
+  const directory = mkdtempSync(join(tmpdir(), 'combine-vrt-invalid-'));
+  t.after(() => rmSync(directory, {recursive: true, force: true}));
+  writeFileSync(join(directory, 'pdf-report.json'), '{"errors":[]}');
+  for (const report of [null, [], {errors: null}, {errors: [null]}, {errors: [{reason: 123}]}]) {
+    writeFileSync(join(directory, 'epub-report.json'), JSON.stringify(report));
+    const result = combineReports(directory);
+    assert.equal(result.errors.length, 1);
+    assert.match(result.errors[0].reason, /EPUB build\/render\/comparison report unavailable/);
+  }
 });
