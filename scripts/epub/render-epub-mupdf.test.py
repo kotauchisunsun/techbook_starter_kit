@@ -1,4 +1,4 @@
-"""Run with: npm run test:python (no PyMuPDF required)."""
+"""npm run test:python で実行する（PyMuPDF は不要）。"""
 import argparse
 import importlib.util
 from pathlib import Path
@@ -11,6 +11,7 @@ spec.loader.exec_module(renderer)
 
 class RendererTests(unittest.TestCase):
     def test_exact_epub3_notice(self):
+        """EPUB 3.0 の既知の通知だけを許容し、その他の警告はエラーにする。"""
         notice = 'unknown epub version: 3.0'
         self.assertEqual(renderer.classify_messages(notice), ([notice], []))
         for warning in ['unknown epub version: 4.0', 'unknown epub version: <none>',
@@ -20,6 +21,7 @@ class RendererTests(unittest.TestCase):
                 self.assertEqual(renderer.classify_messages(notice + '\n' + warning), ([notice], [warning]))
 
     def test_viewport_validation(self):
+        """ビューポート幅の重複を除き、不正な幅や範囲外の数値を拒否する。"""
         self.assertEqual(renderer.viewport_widths('420,240,420'), [420, 240])
         for value in ['', 'nan', '119', '3001', '240.5', '240,']:
             with self.subTest(value=value), self.assertRaises(argparse.ArgumentTypeError):

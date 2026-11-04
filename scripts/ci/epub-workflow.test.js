@@ -30,7 +30,7 @@ function withFixture(callback) {
   }
 }
 
-test('both build workflows validate PDF and EPUB before exposing artifacts or release assets', () => {
+test('両ビルドワークフローはアーティファクトやリリース資産の公開前にPDFとEPUBを検証する', () => {
   for (const workflow of [build, pr]) {
     const steps = workflow.jobs.build.steps;
     const checkIndex = steps.findIndex(step => step.run?.includes('npm run build:all'));
@@ -62,7 +62,7 @@ test('both build workflows validate PDF and EPUB before exposing artifacts or re
   }
 });
 
-test('release prepares exactly two PDFs and an EPUB with the same JST timestamp and unchanged bytes', () => {
+test('リリースは同じJSTタイムスタンプでPDFを2つとEPUBを1つ準備し、バイト列を変更しない', () => {
   const prepare = build.jobs.build.steps.find(step => step.id === 'release');
   const publish = build.jobs.build.steps.find(step => step.uses?.startsWith('svenstaro/upload-release-action@'));
   withFixture(({root, run, env}) => {
@@ -87,7 +87,7 @@ test('release prepares exactly two PDFs and an EPUB with the same JST timestamp 
   });
 });
 
-test('main-only release policy, tested build dependency and existing manual PDF artifact are preserved', () => {
+test('main限定のリリース方針、テスト済みビルドへの依存、既存の手動PDFアーティファクトを維持する', () => {
   assert.deepEqual(build.on, {push: {branches: ['main']}, workflow_dispatch: null});
   assert.equal(build.jobs.build.needs, 'test');
   assert.deepEqual(build.permissions, {contents: 'read'});
@@ -114,7 +114,7 @@ test('main-only release policy, tested build dependency and existing manual PDF 
   }
 });
 
-test('PR EPUB retains direct downloads and read-only build permissions without adding release privileges', () => {
+test('PRのEPUBはリリース権限を追加せず、直接ダウンロードと読み取り専用のビルド権限を維持する', () => {
   assert.deepEqual(pr.on, {pull_request: null});
   assert.deepEqual(pr.permissions, {contents: 'read'});
   assert.deepEqual(pr.jobs.build.permissions, {contents: 'read', actions: 'read'});

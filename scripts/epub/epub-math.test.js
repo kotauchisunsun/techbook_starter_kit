@@ -14,7 +14,7 @@ async function render(markdown, options = {}, extra = {}) {
   return { tree, html: String(result) };
 }
 
-test('inline superscripts become font-independent SVG paths with baseline dimensions and source alternative', async () => {
+test('インラインの上付き文字を、ベースラインに沿う寸法と数式ソースの代替テキストを持つフォント非依存の SVG パスにする', async () => {
   const { tree, html } = await render('二次方程式 $x^2-3x+2=0$ を解きます。');
   const wrapper = wrappers(tree)[0];
   assert.equal(wrapper.properties.ariaLabel, 'x^2-3x+2=0');
@@ -36,7 +36,7 @@ test('inline superscripts become font-independent SVG paths with baseline dimens
   assert.match(html, /二次方程式/);
 });
 
-test('aligned equations keep four rows in one SVG and do not flatten into text', async () => {
+test('整列した数式の4行を1つの SVG 内に保ち、単なるテキストにしない', async () => {
   const { tree, html } = await render(String.raw`$$
 \begin{aligned}
 x^2-3x+2 &= 0 \\
@@ -52,7 +52,7 @@ $$`);
   assert.match(html, /data-mml-node="mtable"/);
 });
 
-test('long display equations use native reflow opportunities between self-contained SVG fragments', async () => {
+test('長い独立行の数式は自己完結した SVG 断片の間でリーダーの折り返しを利用する', async () => {
   const source = 'A+B+C+D+E+F+G+H+I+J+K+L+M+N+O+P+Q+R+S+T=210';
   const { tree, html } = await render(`$$\n${source}\n$$`);
   const wrapper = wrappers(tree)[0];
@@ -62,7 +62,7 @@ test('long display equations use native reflow opportunities between self-contai
   assert.doesNotMatch(html, /<mjx-|font-family|letter-spacing|display:flex/);
 });
 
-test('fractions, roots and fenced groups stay intact within a fragment', async () => {
+test('分数・根号・括弧で囲んだ式を断片内で崩さず保持する', async () => {
   const { tree, html } = await render(String.raw`$\frac{a+b}{c-d}+\sqrt{x+y}+(u+v)^2=z$`);
   assert.match(html, /data-mml-node="mfrac"/);
   assert.match(html, /data-mml-node="msqrt"/);
@@ -72,13 +72,13 @@ test('fractions, roots and fenced groups stay intact within a fragment', async (
   assert.equal(fragments.filter(node => collect(node, child => child.properties?.dataMmlNode === 'mfrac').length).length, 1);
 });
 
-test('removes VFM runtime loader while preserving unrelated scripts', async () => {
+test('無関係なスクリプトを残して VFM の実行時ローダーを削除する', async () => {
   const { html } = await render('$x^2$\n\n<script src="other.js"></script>', {}, { partial: false });
   assert.doesNotMatch(html, /cdnjs\.cloudflare\.com|MathJax\.js/);
   assert.match(html, /src="other.js"/);
 });
 
-test('sample manuscript renders all formulas without changing its source', async () => {
+test('サンプル原稿を変更せず、すべての数式を描画する', async () => {
   const source = await readFile(new URL('../../manuscript/02_examples.md', import.meta.url), 'utf8');
   const { tree, html } = await render(source);
   assert(wrappers(tree).length >= 8);
@@ -86,7 +86,7 @@ test('sample manuscript renders all formulas without changing its source', async
   assert.equal(await readFile(new URL('../../manuscript/02_examples.md', import.meta.url), 'utf8'), source);
 });
 
-test('invalid formula and invalid options fail instead of silently flattening mathematics', async () => {
+test('不正な数式やオプションは数式を黙って単なるテキストにせず失敗させる', async () => {
   await assert.rejects(render('$\\frac{a$'));
   assert.throws(() => epubMath({ minimumLength: 0 }), /positive integer/);
 });

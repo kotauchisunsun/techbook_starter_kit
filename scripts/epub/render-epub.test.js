@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { captureSpine, contrastRatio, initializeReader, launchReaderBrowser, locationKey, missingTokenColors, overflowingFragments, parseArguments, reportFailed, serveReader } from './render-epub.js';
 
-test('reader opens the actual archive with self-contained resources in both browser engines', async () => {
+test('両ブラウザーエンジンで、自己完結したリソースを使って実際のアーカイブを開く', async () => {
   const previousWindow = globalThis.window;
   let requested;
   globalThis.window = { ePub: (input, options) => {
@@ -21,7 +21,7 @@ test('reader opens the actual archive with self-contained resources in both brow
   }
 });
 
-test('EPUB renderer defaults to desktop/mobile and validates arguments', () => {
+test('EPUB 描画の既定値はデスクトップ・モバイル向けで、引数を検証する', () => {
   const options = parseArguments(['book.epub', 'output']);
   assert.deepEqual(options.widths, [600, 360]);
   assert.equal(options.height, 780);
@@ -43,7 +43,7 @@ function location(index, page, total) {
     end: { index, cfi: `epubcfi(${index}/${page}/end)`, displayed: { page, total } } };
 }
 
-test('EPUB renderer captures every spine page including non-linear covers', async () => {
+test('EPUB 描画は非線形の表紙を含む spine の全ページを撮影する', async () => {
   let index;
   let page;
   const spine = [{ index: 0, href: 'cover.xhtml', linear: 'no' }, { index: 1, href: 'chapter.xhtml' }, { index: 2, href: 'back.xhtml' }];
@@ -62,7 +62,7 @@ test('EPUB renderer captures every spine page including non-linear covers', asyn
   assert.deepEqual(pages.map(item => item.spineIndex), [0, 1, 1, 1, 2]);
 });
 
-test('EPUB pagination fails on repeated locations, skipped sections and hard limits', async () => {
+test('EPUB のページ分割は位置の反復・セクションの欠落・上限到達で失敗する', async () => {
   const spine = [{ index: 0, href: 'chapter.xhtml' }];
   const adapter = { display: async () => {}, next: async () => {}, screenshot: async () => {},
     snapshot: async () => ({ location: location(0, 1, 3) }) };
@@ -73,7 +73,7 @@ test('EPUB pagination fails on repeated locations, skipped sections and hard lim
   assert.throws(() => locationKey({}), /did not report/);
 });
 
-test('overflow detection handles separate column fragments without treating chapter width as overflow', () => {
+test('はみ出し検出は段組みの断片を個別に扱い、章全体の幅をはみ出しとみなさない', () => {
   const geometry = { origin: 20, columnWidth: 320, stride: 360 };
   const rect = (left, right) => ({ left, right, width: right - left, height: 20 });
   assert.deepEqual(overflowingFragments([rect(20, 330), rect(380, 690), rect(740, 1060)], geometry), []);
@@ -84,7 +84,7 @@ test('overflow detection handles separate column fragments without treating chap
   assert.deepEqual(overflowingFragments([rect(20, 600)], { origin: 0, columnWidth: NaN, stride: 360 }), []);
 });
 
-test('strict reports fail for missing images and overflowing math/code; baseline still fails runtime errors', () => {
+test('厳格な検証では画像欠落や数式・コードのはみ出しで失敗し、baseline でも実行時エラーは失敗にする', () => {
   const report = { complete: true, baseline: false, errors: [], viewports: [{ pages: [{ diagnostics: [] }] }] };
   assert.equal(reportFailed(report), false);
   for (const type of ['missing-image', 'code-overflow', 'math-overflow', 'unhighlighted-code', 'font-load-error']) {
@@ -96,7 +96,7 @@ test('strict reports fail for missing images and overflowing math/code; baseline
   assert.equal(reportFailed({ ...report, baseline: true, complete: false }), true);
 });
 
-test('syntax-highlight checks accept valid single-color punctuation, operators and shared-color groups', () => {
+test('構文強調の検証は妥当な単色の句読記号・演算子や同色のグループを許容する', () => {
   const token = (...classes) => ({ classes: ['token', ...classes], color: 'rgb(248, 248, 242)' });
   // Python foo(bar): only the two punctuation tokens need a color.
   assert.equal(missingTokenColors([token('punctuation'), token('punctuation')]), false);
@@ -109,7 +109,7 @@ test('syntax-highlight checks accept valid single-color punctuation, operators a
   assert.equal(missingTokenColors([]), false);
 });
 
-test('syntax-highlight checks require known differently colored token groups', () => {
+test('構文強調の検証は既知の異なる色を持つトークングループを必要とする', () => {
   const token = (type, color = 'rgb(0, 0, 0)') => ({ classes: ['token', type], color });
   assert.equal(missingTokenColors([token('keyword'), token('number')]), true);
   assert.equal(missingTokenColors([token('function'), token('punctuation')]), true);
@@ -124,7 +124,7 @@ test('syntax-highlight checks require known differently colored token groups', (
   assert.equal(browserHelper([token('keyword'), token('number')]), true);
 });
 
-test('reader server exposes only exact local assets and preserves EPUB bytes', async t => {
+test('リーダーサーバーは指定どおりのローカル素材だけを公開し、EPUB のバイト列を保つ', async t => {
   const directory = await mkdtemp(join(tmpdir(), 'epub-reader-test-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const input = join(directory, 'book.epub');
@@ -146,7 +146,7 @@ test('reader server exposes only exact local assets and preserves EPUB bytes', a
   assert.equal((await fetch(`${server.url}/book.epub`, { method: 'POST' })).status, 404);
 });
 
-test('committed QA harness loads the real EPUB.js reader without scripted book content', async () => {
+test('リポジトリ内の QA 用コードは書籍本文にスクリプトを含めず、実際の EPUB.js リーダーを読み込む', async () => {
   const source = await readFile(new URL('./render-epub.js', import.meta.url), 'utf8');
   assert.match(source, /window\.ePub\('\/book\.epub'/);
   assert.match(source, /allowScriptedContent: false/);
@@ -158,7 +158,7 @@ test('committed QA harness loads the real EPUB.js reader without scripted book c
 });
 
 
-test('browser launch uses the chosen engine and preserves the default for programmatic callers', async () => {
+test('ブラウザー起動は選択したエンジンを使い、プログラムからの呼び出しでは既定値を保つ', async () => {
   const calls = [];
   const engines = Object.fromEntries(['chromium', 'webkit'].map(engine => [engine, {
     launch: async options => { calls.push({ engine, options }); return engine; },
@@ -170,7 +170,7 @@ test('browser launch uses the chosen engine and preserves the default for progra
   assert.equal(calls.length, 2);
 });
 
-test('contrast probes calculate opaque RGB only and are standalone in the browser', () => {
+test('コントラスト検査は不透明な RGB だけを計算し、ブラウザー内で単独動作する', () => {
   assert.equal(contrastRatio('rgb(0, 0, 0)', 'rgb(255, 255, 255)'), 21);
   assert.equal(contrastRatio('rgb(40, 42, 54)', 'rgb(40, 42, 54)'), 1);
   assert.ok(contrastRatio('rgb(248, 248, 242)', 'rgb(39, 40, 34)') > 10);
@@ -184,7 +184,7 @@ test('contrast probes calculate opaque RGB only and are standalone in the browse
 });
 
 
-test('math probes include path-based SVG equations alongside native MathML', async () => {
+test('数式検査はネイティブ MathML とパスで描く SVG 数式の両方を対象にする', async () => {
   const source = await readFile(new URL('./render-epub.js', import.meta.url), 'utf8');
   assert.ok(source.includes(`doc.querySelectorAll('math, [role="math"], .epub-math')`));
   assert.match(source, /node\.querySelectorAll\('svg'\)/);

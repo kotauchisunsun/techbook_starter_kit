@@ -8,7 +8,7 @@ import test from 'node:test';
 
 const renderer = fileURLToPath(new URL('./render-pdf-pages.sh', import.meta.url));
 
-test('renders both PDF variants at 300 dpi and removes only stale page images', async (t) => {
+test('両形式の PDF を 300 dpi で描画し、古いページ画像だけを削除する', async (t) => {
   const dir = await mkdtemp(join(tmpdir(), 'render-pdf-'));
   t.after(() => rm(dir, { recursive: true, force: true }));
   const pdfDir = join(dir, 'input PDFs');
@@ -40,13 +40,13 @@ printf 'rendered' > "$5-01.png"
   assert.equal(await readFile(join(imageDir, 'keep.png'), 'utf8'), 'unrelated image');
 });
 
-test('requires both input and output directories', () => {
+test('入力・出力の両ディレクトリを必須にする', () => {
   const result = spawnSync('sh', [renderer], { encoding: 'utf8' });
   assert.equal(result.status, 2);
   assert.match(result.stderr, /Usage:/);
 });
 
-test('fails when a required PDF is missing', async (t) => {
+test('必要な PDF がない場合は失敗する', async (t) => {
   const dir = await mkdtemp(join(tmpdir(), 'render-pdf-missing-'));
   t.after(() => rm(dir, { recursive: true, force: true }));
   const result = spawnSync('sh', [renderer, join(dir, 'missing'), join(dir, 'images')], { encoding: 'utf8' });

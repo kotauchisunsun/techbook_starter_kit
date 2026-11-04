@@ -6,7 +6,7 @@ import {spawnSync} from 'node:child_process';
 import {join} from 'node:path';
 import {combineReports} from './combine-vrt-reports.js';
 
-test('both formats must have reports, and differences remain failures', () => {
+test('両形式のレポートを必須とし、差分は失敗として保持する', () => {
   const dir = mkdtempSync(join(tmpdir(), 'combine-vrt-'));
   try {
     assert.equal(combineReports(dir).errors.length, 2);
@@ -21,7 +21,7 @@ test('both formats must have reports, and differences remain failures', () => {
   } finally { rmSync(dir, {recursive: true, force: true}); }
 });
 
-test('explicit runner-owned destination never writes into container output', t => {
+test('明示したランナー所有の出力先を使い、コンテナーの出力先には書き込まない', t => {
   const root = mkdtempSync(join(tmpdir(), 'combine-vrt-owned-'));
   t.after(() => rmSync(root, {recursive: true, force: true}));
   const source = join(root, 'docker-output');

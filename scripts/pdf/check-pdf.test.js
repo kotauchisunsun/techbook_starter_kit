@@ -9,7 +9,7 @@ import { PDFDocument, PageSizes } from 'pdf-lib';
 
 const checker = fileURLToPath(new URL('./check-pdf.js', import.meta.url));
 
-test('PDF size follows Vivliostyle config', async () => {
+test('PDF の判型は Vivliostyle の設定に従う', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'check-pdf-'));
   const pdfPath = join(dir, 'book.pdf');
   try {
