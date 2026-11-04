@@ -17,7 +17,7 @@ npm run check:epub
 
 ## scripts のコードを検査する
 
-`npm run lint:code` は `scripts/` 配下の実装コードだけを検査します。JavaScript は ESLint、シェルは ShellCheck を使います。独自のファイル探索やワークフロー解析は行いません。自動整形・修正もしません。
+`npm run lint:code` は `scripts/` 配下の実装コードと既存テストコードを検査します。JavaScript は ESLint、シェルは ShellCheck を使います。独自のファイル探索やワークフロー解析は行いません。自動整形・修正もしません。
 
 `npm ci` に加えて、Python 3.10 以上で ShellCheck 用の環境を一度作ります。配布パッケージは `requirements-lint.txt` で固定しています。PDF・EPUB のビルドだけなら、この追加環境は不要です。
 
@@ -41,7 +41,7 @@ npm run lint:code
 
 次回も同じ環境を有効にします。ShellCheck が未導入なら検査は失敗します。PowerShell の有効化が禁止されている場合は設定を変更せず WSL を使えます。
 
-- `lint:js`: ESLint が `scripts/` の `.js` / `.mjs` / `.cjs` を検査します。この段階では `*.test.js`・`*.integration.js` と同じ命名の MJS/CJS を除外し、既存テストコードの lint は後続 #44 で追加します。`scripts/fixtures/` の例と、`scripts/` 内の依存関係・生成物は除外します。
+- `lint:js`: ESLint が `scripts/` の `.js` / `.mjs` / `.cjs` を検査します。`*.test.js`・`*.integration.js` と同じ命名の MJS/CJS も含めます。lint 自体の動作確認テストは追加しません。`scripts/fixtures/` の例と、`scripts/` 内の依存関係・生成物は除外します。
 - `lint:shell`: `scripts/setup.sh` と `scripts/render-pdf-pages.sh` を ShellCheck に直接渡します。シェルを追加したら、このコマンドの対象にも追加してください。Windows でもワイルドカード展開に依存しません。
 - ルートの設定 JS・CSS、JSON・YAML、CI 内の埋め込みコード、Python は対象外です。原稿・文書・コード例・素材・生成物も対象にしません。Ruff は不要です。
 
