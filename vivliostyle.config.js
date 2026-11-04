@@ -1,4 +1,6 @@
-import documentProcessor from './scripts/mermaid.js';
+import './scripts/register-typescript.js';
+
+const { default: documentProcessor } = await import('./scripts/mermaid.ts');
 
 export default {
   title: '本のタイトル',

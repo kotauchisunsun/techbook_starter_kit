@@ -4,7 +4,7 @@ import {readFileSync, readdirSync} from 'node:fs';
 import {resolve} from 'node:path';
 import rawConfig from '../../vivliostyle.config.js';
 import printConfig from '../../vivliostyle.print.config.js';
-import documentProcessor from '../mermaid.js';
+import documentProcessor from '../mermaid.ts';
 const config = rawConfig as typeof rawConfig & {workspaceDir?: string; vfm?: Parameters<typeof documentProcessor>[0]};
 
 test('プロジェクト内のすべてのJavaScriptは明示的なESMパッケージスコープと.js拡張子を使う', () => {
