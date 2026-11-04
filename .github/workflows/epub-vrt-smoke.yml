@@ -20,17 +20,18 @@ jobs:
         with:
           node-version: '24'
           cache: npm
-      - uses: actions/setup-python@v6
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
-          python-version: '3.12'
+          version: '0.13.4'
+          enable-cache: true
       - run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends imagemagick
-          python -m pip install PyMuPDF==1.26.6
+          uv sync --locked --only-group vrt
           npm ci
           npx playwright install --with-deps chromium-headless-shell webkit
       - run: node --test scripts/compare-epub-pages.test.js
-      - run: node scripts/epub-vrt.integration.js
+      - run: npm run test:vrt
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:

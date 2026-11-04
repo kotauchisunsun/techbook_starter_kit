@@ -1,5 +1,5 @@
 // Real reader smoke test. No dependency on the template author's manuscript.
-// Run explicitly in CI with Playwright browsers, PyMuPDF and ImageMagick installed.
+// Run with npm run test:vrt after installing Playwright browsers and ImageMagick.
 import assert from 'node:assert/strict';
 import {mkdir, writeFile, readFile} from 'node:fs/promises';
 import {resolve, join} from 'node:path';
@@ -31,7 +31,7 @@ for (const [side, input] of [['before', original], ['after', original], ['change
   for (const browser of ['chromium', 'webkit']) {
     run(process.execPath, ['scripts/render-epub.js', input, join(root, side, browser), `--browser=${browser}`, '--baseline']);
   }
-  run(process.env.EPUB_VRT_PYTHON || 'python3', ['scripts/render-epub-mupdf.py', input, join(root, side, 'mupdf')]);
+  run(process.env.EPUB_VRT_PYTHON || 'python', ['scripts/render-epub-mupdf.py', input, join(root, side, 'mupdf')]);
 }
 run(process.execPath, ['scripts/compare-epub-pages.js', join(root, 'before'), join(root, 'after'), join(root, 'same-diff'), join(root, 'same-report.json')]);
 run(process.execPath, ['scripts/compare-epub-pages.js', join(root, 'before'), join(root, 'changed'), join(root, 'changed-diff'), join(root, 'changed-report.json')], 1);

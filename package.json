@@ -22,7 +22,10 @@
     "check:epub:render": "node scripts/render-epub.js",
     "lint:code": "npm run lint:js && npm run lint:shell",
     "lint:js": "eslint scripts --max-warnings=0",
-    "lint:shell": "shellcheck --norc scripts/setup.sh scripts/render-pdf-pages.sh scripts/run-epub-vrt.sh"
+    "lint:shell": "uv run --locked --only-group lint shellcheck --norc scripts/setup.sh scripts/render-pdf-pages.sh scripts/run-epub-vrt.sh",
+    "test:python": "uv run --locked --no-default-groups python scripts/render-epub-mupdf.test.py",
+    "check:epub:mupdf": "uv run --locked --only-group vrt python scripts/render-epub-mupdf.py",
+    "test:vrt": "uv run --locked --only-group vrt node scripts/epub-vrt.integration.js"
   },
   "dependencies": {
     "@mitsuharu/vivliostyle-theme-noto-sans-jp": "0.2.0",

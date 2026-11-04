@@ -4,7 +4,7 @@ import {join, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {compareEpubPages} from './compare-epub-pages.js';
 
-export function runEpubVrt({baseline, current, output, python = '/tmp/epub-vrt-python/bin/python',
+export function runEpubVrt({baseline, current, output, python = process.env.EPUB_VRT_PYTHON || 'python',
   run = (command, args, cwd) => spawnSync(command, args, {cwd, stdio: 'inherit'}), compare = compareEpubPages}) {
   mkdirSync(output, {recursive: true});
   rmSync(join(output, 'epub-report.json'), {force: true});

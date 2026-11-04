@@ -60,13 +60,14 @@ jobs:
       - name: Build, render, and compare EPUBs in Docker
         if: ${{ !cancelled() }}
         run: |
+          docker build -t techbook-epub-vrt - < scripts/epub-vrt.Dockerfile
           docker run --rm \
             -e CI=true \
             -v "$GITHUB_WORKSPACE:/work/current" \
             -v "$RUNNER_TEMP/baseline:/work/baseline" \
             -v /work/current/node_modules \
             -v /work/baseline/node_modules \
-            -w /work/current node:24-trixie-slim sh scripts/run-epub-vrt.sh
+            -w /work/current techbook-epub-vrt sh scripts/run-epub-vrt.sh
       - name: Combine PDF and EPUB results
         if: always()
         env:

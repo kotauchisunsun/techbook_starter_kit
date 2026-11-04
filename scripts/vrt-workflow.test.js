@@ -66,12 +66,14 @@ test('EPUB uses the same head readers for both independently built sources and c
   assert.equal(epub.if, '${{ !cancelled() }}');
   assert.match(epub.run, /scripts\/run-epub-vrt.sh/);
   const setup = readFileSync('scripts/run-epub-vrt.sh', 'utf8');
-  assert.match(setup, /PyMuPDF==1\.26\.6/);
+  assert.match(setup, /uv sync --locked --only-group vrt/);
+  assert.match(epub.run, /docker build -t techbook-epub-vrt - < scripts\/epub-vrt\.Dockerfile/);
+  assert.match(epub.run, /techbook-epub-vrt sh scripts\/run-epub-vrt.sh/);
   assert.match(setup, /node scripts\/run-epub-vrt.js/);
   assert.equal(job.steps.find(s => s.name === 'Combine PDF and EPUB results').if, 'always()');
   const smoke = yaml.load(readFileSync('.github/workflows/epub-vrt-smoke.yml', 'utf8'));
   assert.deepEqual(smoke.permissions, {contents: 'read'});
-  assert.ok(smoke.jobs['epub-vrt-smoke'].steps.some(s => s.run?.includes('scripts/epub-vrt.integration.js')));
+  assert.ok(smoke.jobs['epub-vrt-smoke'].steps.some(s => s.run?.includes('npm run test:vrt')));
 });
 
 test('host report merge and fallback use runner temp without writing Docker output', t => {

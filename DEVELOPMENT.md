@@ -1,6 +1,6 @@
 # 開発・検証ガイド
 
-テンプレート本体の設定・スクリプト・CI を変更する人向けのガイドです。本を作るための最小手順は [`README.md`](README.md)、執筆手順は [`AGENTS.md`](AGENTS.md) を参照してください。原稿の編集だけなら lint 専用環境や追加の描画ツールは不要です。
+テンプレート本体の設定・スクリプト・CI を変更する人向けのガイドです。本を作るための最小手順は [`README.md`](README.md)、執筆手順は [`AGENTS.md`](AGENTS.md) を参照してください。原稿の編集だけなら uv や追加の描画ツールは不要です。
 
 ## テンプレート本体を変更する
 
@@ -19,27 +19,17 @@ npm run check:epub
 
 `npm run lint:code` は `scripts/` 配下の実装コードと既存テストコードを検査します。JavaScript は ESLint、シェルは ShellCheck を使います。独自のファイル探索やワークフロー解析は行いません。自動整形・修正もしません。
 
-`npm ci` に加えて、Python 3.10 以上で ShellCheck 用の環境を一度作ります。配布パッケージは `requirements-lint.txt` で固定しています。PDF・EPUB のビルドだけなら、この追加環境は不要です。
-
-Linux / macOS / WSL:
+[uv の公式手順](https://docs.astral.sh/uv/getting-started/installation/)で uv 0.13.4 以上を導入し、`npm ci` の後に実行します。Linux・macOS・WSL・Windows PowerShell で同じコマンドを使えます。
 
 ```sh
-python3 -m venv .venv-lint
-. .venv-lint/bin/activate
-python -m pip install -r requirements-lint.txt
 npm run lint:code
 ```
 
-Windows PowerShell:
+Python は `.python-version` の 3.12 系、ShellCheck と PyMuPDF は `pyproject.toml` と `uv.lock` で管理します。npm の検証コマンドは `uv run --locked` を使い、必要な Python と依存関係を `.venv/` に自動で準備します。仮想環境を手動で有効にする必要はありません。
 
-```powershell
-py -3 -m venv .venv-lint
-.\.venv-lint\Scripts\Activate.ps1
-python -m pip install -r requirements-lint.txt
-npm run lint:code
-```
+開発用の依存関係をまとめて準備する場合は `uv sync --locked` を使います。`lint` グループが ShellCheck、`vrt` グループが MuPDF 描画用です。依存を更新するときは `pyproject.toml` の変更後に `uv lock` を実行し、両ファイルをコミットしてください。CI は lockfile の不整合で失敗し、自動では更新しません。Dependabot の Python 依存更新にも `vrt` ラベルを付けて描画を検証します。
 
-次回も同じ環境を有効にします。ShellCheck が未導入なら検査は失敗します。PowerShell の有効化が禁止されている場合は設定を変更せず WSL を使えます。
+通常の PDF・EPUB ビルドには uv は不要です。`.venv/` はコミットしません。
 
 - `lint:js`: ESLint が `scripts/` の `.js` / `.mjs` / `.cjs` を検査します。`*.test.js`・`*.integration.js` と同じ命名の MJS/CJS も含めます。lint 自体の動作確認テストは追加しません。`scripts/fixtures/` の例と、`scripts/` 内の依存関係・生成物は除外します。
 - `lint:shell`: `scripts/setup.sh`・`scripts/render-pdf-pages.sh`・`scripts/run-epub-vrt.sh` を ShellCheck に直接渡します。シェルを追加したら、このコマンドの対象にも追加してください。Windows でもワイルドカード展開に依存しません。
@@ -79,12 +69,11 @@ npx playwright install --with-deps webkit
 npm run check:epub:render -- output/epub/book.epub output/epub-render-webkit --browser=webkit
 ```
 
-MuPDF でも確認する場合は、Python の仮想環境を有効にして次を実行します。
+MuPDF でも確認する場合は、uv を導入して次を実行します。PyMuPDF は lockfile のバージョンが自動で使われます。
 
 ```sh
-python -m pip install PyMuPDF==1.26.6
-python scripts/render-epub-mupdf.test.py
-python scripts/render-epub-mupdf.py output/epub/book.epub output/epub-mupdf
+npm run test:python
+npm run check:epub:mupdf -- output/epub/book.epub output/epub-mupdf
 ```
 
 これらは実機の読書アプリそのものの検証ではありません。EPUB は画面や文字サイズで本文が流れる形式で、数式・SVG・表・コード・フォント・CSS の表示にはリーダーごとの差があります。出力画像を目視確認し、配布前は対象リーダーでも目次・日本語・図表・数式を確認してください。
@@ -113,5 +102,6 @@ workflow 名とコメント識別子は互換性のため旧 PDF 名を維持し
 
 `Test EPUB visual comparison` CI は原稿とは独立した小さな EPUB を実際に各リーダーで二度描画し、
 同一内容が成功すること、24px の検証用テキストの文字色を黒から赤へ意図的に変更した EPUB が画像差分で失敗することを確認します。
-ローカルで実行する場合は ImageMagick、PyMuPDF 1.26.6、Playwright の Chromium / WebKit を用意し、
-`node scripts/epub-vrt.integration.js` を実行してください。
+ローカルで実行する場合は uv、ImageMagick、Playwright の Chromium / WebKit を用意し、
+`npm run test:vrt` を実行してください。CI の EPUB 比較コンテナーも同じ lockfile を使い、
+ホストの `.venv/` と混ざらない一時環境で両方の EPUB を描画します。
