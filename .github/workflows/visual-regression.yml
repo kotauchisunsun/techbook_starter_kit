@@ -33,6 +33,16 @@ jobs:
         run: |
           baseline=$(git merge-base HEAD "${{ github.event.pull_request.base.sha }}")
           git worktree add --detach "$RUNNER_TEMP/baseline" "$baseline"
+      # Install before Docker creates anonymous node_modules mount points.
+      # This keeps the host directory runner-owned for report combining.
+      - uses: actions/setup-node@v7.1.0
+        if: always()
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install host report dependencies
+        if: always()
+        run: npm ci
       - name: Build, render, and compare PDFs in Docker
         run: |
           docker run --rm \
@@ -68,15 +78,6 @@ jobs:
             -v /work/current/node_modules \
             -v /work/baseline/node_modules \
             -w /work/current techbook-epub-vrt sh scripts/vrt/run-epub-vrt.sh
-      # Docker installs live in anonymous volumes, not the host checkout.
-      - uses: actions/setup-node@v7.1.0
-        if: always()
-        with:
-          node-version: '24'
-          cache: npm
-      - name: Install host report dependencies
-        if: always()
-        run: npm ci
       - name: Combine PDF and EPUB results
         if: always()
         env:

@@ -100,6 +100,9 @@ test('tsx is bootstrapped before container orchestration and host report merging
   const install = job.steps.findIndex(s => s.name === 'Install host report dependencies');
   const combine = job.steps.findIndex(s => s.name === 'Combine PDF and EPUB results');
   assert.ok(install >= 0 && install < combine);
+  const dockerSteps = job.steps.flatMap((step, index) => step.run?.includes('docker run') ? [index] : []);
+  assert.equal(dockerSteps.length, 2);
+  assert.ok(dockerSteps.every(index => install < index), 'Host npm ci must precede Docker anonymous volume mount creation');
   assert.equal(job.steps[install].if, 'always()');
   assert.equal(job.steps[install].run, 'npm ci');
   assert.ok(job.steps.slice(0, install).some(s => s.uses?.startsWith('actions/setup-node@') && s.with['node-version'] === '24' && s.if === 'always()'));
