@@ -7,7 +7,7 @@ import documentProcessor from './mermaid.js';
 
 // tsx resolves this TypeScript caller's .js import to the .ts implementation.
 // Root JavaScript configs must still receive that exact same function.
-test('TypeScript callers and root configs share the processor identity', () => {
+test('TypeScript呼び出し側とルート設定で同じプロセッサを共有する', () => {
   assert.equal(config.documentProcessor, documentProcessor);
   assert.equal(printConfig.documentProcessor, documentProcessor);
 });

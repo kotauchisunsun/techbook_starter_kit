@@ -42,11 +42,13 @@ Python は `.python-version` の 3.12 系、ShellCheck と PyMuPDF は `pyprojec
 
 通常の PDF・EPUB ビルドには uv は不要です。`.venv/` はコミットしません。
 
-- `lint:js`: ESLint が `scripts/` の `.js` / `.mjs` / `.cjs` / `.ts` を検査します。`*.test.js`・`*.integration.js` と同じ命名の MJS/CJS も含めます。lint 自体の動作確認テストは追加しません。`scripts/epub/fixtures/` の例と、`scripts/` 内の依存関係・生成物は除外します。
+- `lint:js`: ESLint が `scripts/` の `.js` / `.mjs` / `.cjs` / `.ts` を検査します。`*.test.ts`・`*.integration.ts` と、JavaScript の同名テストも含めます。lint 自体の動作確認テストは追加しません。`scripts/epub/fixtures/` の例と、`scripts/` 内の依存関係・生成物は除外します。
 - `lint:shell`: `scripts/setup.sh`・`scripts/pdf/render-pdf-pages.sh`・`scripts/vrt/run-epub-vrt.sh` を ShellCheck に直接渡します。シェルを追加したら、このコマンドの対象にも追加してください。Windows でもワイルドカード展開に依存しません。
 - ルートの設定 JS・CSS、JSON・YAML、CI 内の埋め込みコード、Python は対象外です。原稿・文書・コード例・素材・生成物も対象にしません。Ruff は不要です。
 
 TypeScript は `scripts/tsconfig.json` の strict / noEmit で実装とテストを検査します。移行中の JavaScript やルート設定は型検査の対象にしません。実行は tsx に任せ、事前コンパイルやグローバルインストールは不要です。型検査と実行テストは別々に維持します。ルートの Vivliostyle 設定は JavaScript のまま維持し、設定から使うプロセッサーの `.js` は tsx で TypeScript 実装を読み込む互換用の入口です。`npx vivliostyle` に追加のローダー指定は不要です。
+
+書き込み権限を持つVRTレポーターだけは、`actions/github-script@v9` のNode.js 24による型除去でヘルパーを直接読み込みます。信頼済みのworkflow SHAからscriptsだけを取得し、npm installやtsxを必要としない境界を維持します。TypeScriptは型除去可能な構文に制限し、この依存なし読み込みも回帰テストで検証します。
 
 PR と main の CI で Node.js 22.13.0 / 24 の `typecheck`・`lint:code`・回帰テストを実行します。ビルド・EPUB 描画・既存回帰テストは別に維持します。原稿校正の `npm run lint` は任意の別機能です。
 

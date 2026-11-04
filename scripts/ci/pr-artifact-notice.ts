@@ -1,10 +1,33 @@
+export interface Repo { owner: string; repo: string }
+export interface Artifact {
+  id: number;
+  name: string;
+  workflow_run?: {id: number} | null;
+  expired?: boolean;
+  expires_at?: string | null
+}
+export interface ArtifactClient {
+  rest: {actions: {getArtifact(args: Repo & {artifact_id: number}): Promise<{data: Artifact | undefined}>}}
+}
+export interface Core { warning(message: string): void }
+export interface NoticeOptions {
+  github: ArtifactClient;
+  core: Core;
+  context: {repo: Repo; runId: number};
+  artifactId: string;
+  artifactUrl: string;
+  expectedName: string;
+  label: string;
+  now?: number
+}
+
 // Use the ID returned by this attempt's upload step, never a name-based search:
 // multiple runs (and reruns) may upload artifacts with the same name.
 const jstDate = new Intl.DateTimeFormat('en-CA', {
   timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit',
 });
 
-function formatExpiryDate(value) {
+function formatExpiryDate(value: unknown) {
   // API timestamps carry an explicit timezone; reject ambiguous date-only inputs.
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value)) return null;
   const [year, month, day] = value.slice(0, 10).split('-').map(Number);
@@ -18,7 +41,7 @@ function formatExpiryDate(value) {
   return `${parts.year}/${parts.month}/${parts.day}`;
 }
 
-async function artifactDownloadLine({github, core, context, artifactId, artifactUrl, expectedName, label, now = Date.now()}) {
+async function artifactDownloadLine({github, core, context, artifactId, artifactUrl, expectedName, label, now = Date.now()}: NoticeOptions) {
   const id = Number(artifactId);
   const unknown = `- ${label} — 保持期限:不明`;
   if (!Number.isSafeInteger(id) || id <= 0 || !artifactUrl) {
@@ -28,10 +51,11 @@ async function artifactDownloadLine({github, core, context, artifactId, artifact
   try {
     ({data: artifact} = await github.rest.actions.getArtifact({...context.repo, artifact_id: id}));
   } catch (error) {
-    if (error.status === 404 || error.status === 410) {
+    const status = typeof error === 'object' && error !== null && 'status' in error ? error.status : undefined;
+    if (status === 404 || status === 410) {
       return `${unknown}（Artifact が見つからないか、削除済みです）`;
     }
-    core.warning(`Could not read artifact ${id} metadata (HTTP ${error.status || 'unknown'}).`);
+    core.warning(`Could not read artifact ${id} metadata (HTTP ${status || 'unknown'}).`);
     return `- [${label}](${artifactUrl}) — 保持期限:取得できませんでした`;
   }
   // Do not attach a date from a different artifact or workflow run.
@@ -41,13 +65,13 @@ async function artifactDownloadLine({github, core, context, artifactId, artifact
   }
   const expiry = formatExpiryDate(artifact.expires_at);
   const retention = `保持期限:${expiry ? `${expiry}（JST）` : '不明'}`;
-  if (artifact.expired || (expiry && Date.parse(artifact.expires_at) <= now)) {
+  if (artifact.expired || (expiry && Date.parse(artifact.expires_at ?? '') <= now)) {
     return `- ${label} — ${retention}（期限切れ）`;
   }
   return `- [${label}](${artifactUrl}) — ${retention}`;
 }
 
-function runDetails({context, env = process.env}) {
+function runDetails({context, env = process.env}: {context: {repo: Repo; runId: number; runNumber: number}; env?: NodeJS.ProcessEnv}) {
   const run = `${env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}/attempts/${env.GITHUB_RUN_ATTEMPT}`;
   return `[実行 #${context.runNumber} / attempt ${env.GITHUB_RUN_ATTEMPT}](${run})`;
 }

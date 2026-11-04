@@ -40,7 +40,7 @@ test('明示したランナー所有の出力先を使い、コンテナーの�
   assert.equal(existsSync(absent), false);
 });
 
-test('malformed report structures remain explicit failures after parsing JSON', t => {
+test('JSON解析後も不正なレポート構造を明示的な失敗として扱う', t => {
   const directory = mkdtempSync(join(tmpdir(), 'combine-vrt-invalid-'));
   t.after(() => rmSync(directory, {recursive: true, force: true}));
   writeFileSync(join(directory, 'pdf-report.json'), '{"errors":[]}');
