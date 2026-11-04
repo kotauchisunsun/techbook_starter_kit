@@ -187,3 +187,13 @@ test('report escaping preserves every Markdown escape and strips control charact
     + ' '.repeat(33) + '&amp;&lt;&gt;@\u200b日本語';
   assert.equal(reportLines(JSON.stringify({errors: [{reason}]})), '\n### ビルドエラー\n' + escaped);
 });
+
+test('EPUB artifact paths are allowed without widening path traversal or renderer scope', () => {
+  for (const renderer of ['chromium', 'webkit', 'mupdf']) {
+    const path = `epub/diff/${renderer}/600x780/page-0001.png`;
+    assert.match(reportLines(JSON.stringify({errors: [{reason: 'pixels changed', images: {diff: path}}]})), /page-0001/);
+  }
+  for (const path of ['epub/diff/../../secret.png', 'epub/diff/other/600x780/page-0001.png', 'epub/before/chromium/600x780/page-0001.png']) {
+    assert.throws(() => reportLines(JSON.stringify({errors: [{reason: 'bad', images: {diff: path}}]})), /Invalid image path/);
+  }
+});

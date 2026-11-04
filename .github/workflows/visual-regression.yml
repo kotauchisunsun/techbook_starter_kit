@@ -17,7 +17,7 @@ jobs:
       group: pdf-vrt-${{ github.event.pull_request.number }}
       cancel-in-progress: true
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 90
     permissions:
       contents: read
       actions: read
@@ -55,15 +55,24 @@ jobs:
               cd /work/current
               sh scripts/render-pdf-pages.sh /work/baseline/output/pdf output/visual/before
               sh scripts/render-pdf-pages.sh output/pdf output/visual/after
-              node scripts/compare-pdf-pages.js output/visual/before output/visual/after output/visual/diff output/visual/report.json
+              node scripts/compare-pdf-pages.js output/visual/before output/visual/after output/visual/diff output/visual/pdf-report.json
             '
-      - name: Record build failure
-        if: failure()
+      - name: Build, render, and compare EPUBs in Docker
+        if: ${{ !cancelled() }}
         run: |
-          mkdir -p output/visual
-          if [ ! -f output/visual/report.json ]; then
-            printf '%s\n' '{"errors":[{"reason":"PDF の生成またはページ画像への変換に失敗しました。ワークフローのログを確認してください。"}]}' > output/visual/report.json
-          fi
+          docker run --rm \
+            -e CI=true \
+            -v "$GITHUB_WORKSPACE:/work/current" \
+            -v "$RUNNER_TEMP/baseline:/work/baseline" \
+            -v /work/current/node_modules \
+            -v /work/baseline/node_modules \
+            -w /work/current node:24-trixie-slim sh scripts/run-epub-vrt.sh
+      - name: Combine PDF and EPUB results
+        if: always()
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        # Docker outputs can be root-owned; host writes belong in runner temp.
+        run: node scripts/combine-vrt-reports.js output/visual "$RUNNER_TEMP/vrt-report/pr-${PR_NUMBER}-vrt-report.json"
       - uses: actions/upload-artifact@v7.0.2
         id: visual
         if: failure()
@@ -80,11 +89,10 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           mkdir -p "$RUNNER_TEMP/vrt-report"
-          if [ ! -f output/visual/report.json ]; then
-            mkdir -p output/visual
-            printf '%s\n' '{"errors":[{"reason":"VRT report unavailable; inspect the workflow logs."}]}' > output/visual/report.json
+          report="$RUNNER_TEMP/vrt-report/pr-${PR_NUMBER}-vrt-report.json"
+          if [ ! -f "$report" ]; then
+            printf '%s\n' '{"errors":[{"reason":"VRT report unavailable; inspect the workflow logs."}]}' > "$report"
           fi
-          cp output/visual/report.json "$RUNNER_TEMP/vrt-report/pr-${PR_NUMBER}-vrt-report.json"
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:

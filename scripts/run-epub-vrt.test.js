@@ -1,0 +1,64 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {runEpubVrt} from './run-epub-vrt.js';
+
+function fixture(t) {
+  const root = mkdtempSync(join(tmpdir(), 'epub-runner-'));
+  t.after(() => rmSync(root, {recursive: true, force: true}));
+  const options = {baseline: join(root, 'baseline'), current: join(root, 'current'), output: join(root, 'visual'), compare: () => ({errors: []})};
+  for (const dir of [options.baseline, options.current]) {
+    mkdirSync(dir); writeFileSync(join(dir, 'package.json'), JSON.stringify({scripts: {'build:epub': 'build'}}));
+  }
+  options.success = (_command, args, cwd) => {
+    if (args[0] === 'run') {
+      mkdirSync(join(cwd, 'output/epub'), {recursive: true});
+      writeFileSync(join(cwd, 'output/epub/book.epub'), 'fixture EPUB');
+    }
+    return {status: 0};
+  };
+  return options;
+}
+test('each source builds independently, both use head readers, and successful commands pass', t => {
+  const options = fixture(t), calls = [];
+  const report = runEpubVrt({...options, run: (command, args, cwd) => { calls.push({command, args, cwd}); return options.success(command, args, cwd); }});
+  assert.deepEqual(report.errors, []);
+  assert.equal(calls.filter(c => c.command === 'npm' && c.args[0] === 'run').length, 2);
+  const renders = calls.filter(c => c.args[0]?.startsWith('scripts/render-epub'));
+  assert.equal(renders.length, 6);
+  assert(renders.every(c => c.cwd === options.current));
+});
+test('nonzero renderer exit cannot pass even with a complete report and successful comparison', t => {
+  const options = fixture(t);
+  const stale = join(options.output, 'epub/before/chromium/report.json');
+  mkdirSync(join(options.output, 'epub/before/chromium'), {recursive: true});
+  writeFileSync(stale, '{"complete":true}');
+  const report = runEpubVrt({...options, run: (_command, args, cwd) => {
+    if (args[0] === 'scripts/render-epub.js' && args[2].endsWith('before/chromium')) {
+      assert.equal(existsSync(stale), false);
+      writeFileSync(stale, '{"complete":true}');
+      return {status: 1};
+    }
+    return options.success(_command, args, cwd);
+  }});
+  assert.match(report.errors[0].reason, /Baseline chromium render failed/);
+  assert.equal(JSON.parse(readFileSync(join(options.output, 'epub-report.json'))).errors.length, 1);
+});
+test('baseline without EPUB and failed source builds have explicit non-success reports', t => {
+  const options = fixture(t);
+  writeFileSync(join(options.baseline, 'package.json'), '{"scripts":{}}');
+  const report = runEpubVrt({...options, run: (_command, args) => ({status: args[0] === 'run' ? 1 : 0})});
+  assert(report.errors.some(e => /Baseline source does not support build:epub/.test(e.reason)));
+  assert(report.errors.some(e => /Current EPUB build failed/.test(e.reason)));
+});
+
+test('successful build without an EPUB cannot reuse a stale archive', t => {
+  const options = fixture(t);
+  mkdirSync(join(options.baseline, 'output/epub'), {recursive: true});
+  writeFileSync(join(options.baseline, 'output/epub/book.epub'), 'stale');
+  const report = runEpubVrt({...options, run: () => ({status: 0})});
+  assert(report.errors.some(e => /Baseline build produced no nonempty EPUB/.test(e.reason)));
+  assert.equal(existsSync(join(options.baseline, 'output/epub/book.epub')), false);
+});
