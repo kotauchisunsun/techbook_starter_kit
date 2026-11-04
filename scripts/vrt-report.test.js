@@ -178,3 +178,12 @@ test('reporter checks out only trusted workflow SHA and downloads only a validat
   assert.match(workflow, /path: \$\{\{ runner.temp \}\}\/vrt-report/);
   assert.doesNotMatch(workflow, /pull_request_target|npm (ci|install)|head\.sha/);
 });
+
+test('report escaping preserves every Markdown escape and strips control characters', () => {
+  const symbols = '\\`*_{}[]()#+!|';
+  const control = String.fromCharCode(...Array.from({length: 32}, (_, i) => i), 127);
+  const reason = symbols + control + '&<>@日本語';
+  const escaped = [...symbols].map(character => '\\' + character).join('')
+    + ' '.repeat(33) + '&amp;&lt;&gt;@\u200b日本語';
+  assert.equal(reportLines(JSON.stringify({errors: [{reason}]})), '\n### ビルドエラー\n' + escaped);
+});

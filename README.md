@@ -6,7 +6,7 @@ Vivliostyle で、同じ原稿から通常版 PDF・印刷用 PDF・EPUB を作�
 
 ## はじめる
 
-Node.js 22.12 以上（推奨: 24 以上）と npm を用意し、リポジトリのディレクトリで実行します。
+Node.js 24 以上（推奨）、または Node.js 22.13 以上の 22 系と npm を用意し、リポジトリのディレクトリで実行します。
 
 ```sh
 npm ci
@@ -44,4 +44,4 @@ npm run check:epub
 - `npm run build:all`: 通常版 PDF・印刷用 PDF・EPUB をまとめて生成します。上記の印刷用ツールも必要です。生成後は `npm run check:pdf -- output/pdf/book.pdf output/pdf/book_print.pdf` と `npm run check:epub` で検証します。
 - `npm run build:docker`: Docker がある WSL / Linux で全形式の生成・検証をまとめて実行します。印刷用ツールと EPUBCheck はコンテナー内で導入します。
 
-テンプレート本体を変更するときの テスト・描画検証は [`DEVELOPMENT.md`](DEVELOPMENT.md) を参照してください。
+テンプレート本体を変更するときの lint・テスト・描画検証は [`DEVELOPMENT.md`](DEVELOPMENT.md) を参照してください。

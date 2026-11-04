@@ -57,9 +57,11 @@ async function prepare({github, context}) {
 }
 
 function escapeText(value, max = 1000) {
+  // Strip control characters from untrusted report text before posting to GitHub.
+  // eslint-disable-next-line no-control-regex
   return String(value).slice(0, max).replace(/[\u0000-\u001f\u007f]/g, ' ')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/@/g, '@\u200b').replace(/[\\`*_{}\[\]()#+!|]/g, '\\$&');
+    .replace(/@/g, '@\u200b').replace(/[\\`*_{}[\]()#+!|]/g, '\\$&');
 }
 function reportLines(text) {
   if (Buffer.byteLength(text) > 1048576) throw new Error('Oversized VRT report');
