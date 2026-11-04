@@ -1,6 +1,6 @@
 # 開発・検証ガイド
 
-テンプレート本体の設定・スクリプト・CI を変更する人向けのガイドです。本を作るための最小手順は [`README.md`](README.md)、執筆手順は [`AGENTS.md`](AGENTS.md) を参照してください。原稿の編集だけなら lint 専用環境や追加の描画ツールは不要です。
+テンプレート本体の設定・スクリプト・CI を変更する人向けのガイドです。本を作るための最小手順は [`README.md`](README.md)、執筆手順は [`AGENTS.md`](AGENTS.md) を参照してください。原稿の編集だけなら uv や追加の描画ツールは不要です。
 
 ## テンプレート本体を変更する
 
@@ -15,34 +15,34 @@ npm run check:epub
 
 `npm run lint` は原稿の日本語校正です。コードブロック（Mermaid を含む）とブロック数式は対象外で、出版システムのコードを検査するコマンドではありません。
 
+## scripts の構成
+
+- `scripts/epub/`: EPUB の生成・検証・描画と、表示確認用の `fixtures/`。
+- `scripts/pdf/`: PDF の検証・ページ画像化。
+- `scripts/vrt/`: PDF / EPUB の画像比較、比較の実行と結果の集約。
+- `scripts/ci/`: PR artifact の通知、VRT 結果の投稿、ワークフローと構成の回帰テスト。
+- `scripts/mermaid.js` と `scripts/setup.sh`: PDF / EPUB 共通の図の処理と環境セットアップ。
+
+ユニットテストは対象のスクリプトと同じディレクトリに置き、`npm test` で `scripts/**/*.test.js` をまとめて実行します。公開している npm コマンドは変わりません。
+
 ## scripts のコードを検査する
 
-`npm run lint:code` は `scripts/` 配下の実装コードだけを検査します。JavaScript は ESLint、シェルは ShellCheck を使います。独自のファイル探索やワークフロー解析は行いません。自動整形・修正もしません。
+`npm run lint:code` は `scripts/` 配下の実装コードと既存テストコードを検査します。JavaScript は ESLint、シェルは ShellCheck を使います。独自のファイル探索やワークフロー解析は行いません。自動整形・修正もしません。
 
-`npm ci` に加えて、Python 3.10 以上で ShellCheck 用の環境を一度作ります。配布パッケージは `requirements-lint.txt` で固定しています。PDF・EPUB のビルドだけなら、この追加環境は不要です。
-
-Linux / macOS / WSL:
+[uv の公式手順](https://docs.astral.sh/uv/getting-started/installation/)で uv 0.13.4 以上を導入し、`npm ci` の後に実行します。Linux・macOS・WSL・Windows PowerShell で同じコマンドを使えます。
 
 ```sh
-python3 -m venv .venv-lint
-. .venv-lint/bin/activate
-python -m pip install -r requirements-lint.txt
 npm run lint:code
 ```
 
-Windows PowerShell:
+Python は `.python-version` の 3.12 系、ShellCheck と PyMuPDF は `pyproject.toml` と `uv.lock` で管理します。npm の検証コマンドは `uv run --locked` を使い、必要な Python と依存関係を `.venv/` に自動で準備します。仮想環境を手動で有効にする必要はありません。
 
-```powershell
-py -3 -m venv .venv-lint
-.\.venv-lint\Scripts\Activate.ps1
-python -m pip install -r requirements-lint.txt
-npm run lint:code
-```
+開発用の依存関係をまとめて準備する場合は `uv sync --locked` を使います。`lint` グループが ShellCheck、`vrt` グループが MuPDF 描画用です。依存を更新するときは `pyproject.toml` の変更後に `uv lock` を実行し、両ファイルをコミットしてください。CI は lockfile の不整合で失敗し、自動では更新しません。Dependabot の Python 依存更新にも `vrt` ラベルを付けて描画を検証します。
 
-次回も同じ環境を有効にします。ShellCheck が未導入なら検査は失敗します。PowerShell の有効化が禁止されている場合は設定を変更せず WSL を使えます。
+通常の PDF・EPUB ビルドには uv は不要です。`.venv/` はコミットしません。
 
-- `lint:js`: ESLint が `scripts/` の `.js` / `.mjs` / `.cjs` を検査します。この段階では `*.test.js`・`*.integration.js` と同じ命名の MJS/CJS を除外し、既存テストコードの lint は後続 #44 で追加します。`scripts/fixtures/` の例と、`scripts/` 内の依存関係・生成物は除外します。
-- `lint:shell`: `scripts/setup.sh` と `scripts/render-pdf-pages.sh` を ShellCheck に直接渡します。シェルを追加したら、このコマンドの対象にも追加してください。Windows でもワイルドカード展開に依存しません。
+- `lint:js`: ESLint が `scripts/` の `.js` / `.mjs` / `.cjs` を検査します。`*.test.js`・`*.integration.js` と同じ命名の MJS/CJS も含めます。lint 自体の動作確認テストは追加しません。`scripts/epub/fixtures/` の例と、`scripts/` 内の依存関係・生成物は除外します。
+- `lint:shell`: `scripts/setup.sh`・`scripts/pdf/render-pdf-pages.sh`・`scripts/vrt/run-epub-vrt.sh` を ShellCheck に直接渡します。シェルを追加したら、このコマンドの対象にも追加してください。Windows でもワイルドカード展開に依存しません。
 - ルートの設定 JS・CSS、JSON・YAML、CI 内の埋め込みコード、Python は対象外です。原稿・文書・コード例・素材・生成物も対象にしません。Ruff は不要です。
 
 PR と main の CI で `lint:code` を実行します。ビルド・EPUB 描画・既存回帰テストは別に維持します。原稿校正の `npm run lint` は任意の別機能です。
@@ -79,12 +79,39 @@ npx playwright install --with-deps webkit
 npm run check:epub:render -- output/epub/book.epub output/epub-render-webkit --browser=webkit
 ```
 
-MuPDF でも確認する場合は、Python の仮想環境を有効にして次を実行します。
+MuPDF でも確認する場合は、uv を導入して次を実行します。PyMuPDF は lockfile のバージョンが自動で使われます。
 
 ```sh
-python -m pip install PyMuPDF==1.26.6
-python scripts/render-epub-mupdf.test.py
-python scripts/render-epub-mupdf.py output/epub/book.epub output/epub-mupdf
+npm run test:python
+npm run check:epub:mupdf -- output/epub/book.epub output/epub-mupdf
 ```
 
 これらは実機の読書アプリそのものの検証ではありません。EPUB は画面や文字サイズで本文が流れる形式で、数式・SVG・表・コード・フォント・CSS の表示にはリーダーごとの差があります。出力画像を目視確認し、配布前は対象リーダーでも目次・日本語・図表・数式を確認してください。
+
+## PDF / EPUB のビジュアル回帰テスト
+
+PDF は変更前後の PDF 同士、EPUB は変更前後の EPUB 同士を比較します。
+
+PR に `vrt` ラベルを付けると、既存の PDF 比較と EPUB 比較を実行します。
+ラベル付き PR の更新でも再実行します。他のラベルの追加では開始も実行中の比較のキャンセルもしません。
+比較元は PR の base と head の merge-base です。それぞれのソースと lockfile で出版物を生成し、
+EPUB の描画だけは head 側の同じスクリプト・依存関係・同じコンテナーで両方を処理します。
+
+- EPUB.js 0.3.93 + lockfile の Playwright Chromium / WebKit: 600 × 780px と 360 × 780px、device scale factor 1。
+- PyMuPDF 1.26.6 同梱の MuPDF（実際の両バージョンは report.json に記録）: 420 × 595pt と 240 × 595pt、font size 11pt、scale 2。
+- ImageMagick で sRGB に正規化した AE 比較を行い、色差の fuzz 4%、各ページ 100 pixels 以下を許容します。異なるリーダー同士は比較しません。
+- 完了レポート、リーダーバージョン、全ページ、PNG の実寸を検証します。ページ数変更は差分です。
+  比較元に EPUB ビルド機能がない、描画が途中で止まった、画像が欠けた場合は失敗であり「差分なし」にはなりません。
+  本文依存のはみ出し・コード配色の診断は描画レポートに残しますが、VRT は本文内容を固定する検査ではありません。
+
+失敗時の画像 artifact に PDF と EPUB の before / after / diff、各リーダーの描画レポートを保存します。
+EPUB の画像は `epub/{before,after,diff}/{chromium,webkit,mupdf}/{幅}x{高さ}/` にあります。
+保持期間は 7 日、既存の PR artifact 削除規則も維持します。
+コメント投稿は引き続き default branch の信頼済み reporter だけが行い、PR の実行には書き込み権限を付与しません。
+workflow 名とコメント識別子は互換性のため旧 PDF 名を維持します。新しい EPUB のコメント表示対応は reporter の main へのマージ後に有効です。
+
+`Test EPUB visual comparison` CI は原稿とは独立した小さな EPUB を実際に各リーダーで二度描画し、
+同一内容が成功すること、24px の検証用テキストの文字色を黒から赤へ意図的に変更した EPUB が画像差分で失敗することを確認します。
+ローカルで実行する場合は uv、ImageMagick、Playwright の Chromium / WebKit を用意し、
+`npm run test:vrt` を実行してください。CI の EPUB 比較コンテナーも同じ lockfile を使い、
+ホストの `.venv/` と混ざらない一時環境で両方の EPUB を描画します。

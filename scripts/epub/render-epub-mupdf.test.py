@@ -1,4 +1,4 @@
-"""Run with: python scripts/render-epub-mupdf.test.py (no PyMuPDF required)."""
+"""Run with: npm run test:python (no PyMuPDF required)."""
 import argparse
 import importlib.util
 from pathlib import Path

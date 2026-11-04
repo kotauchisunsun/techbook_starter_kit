@@ -5,3 +5,8 @@ updates:
     labels: [vrt]
     schedule:
       interval: daily
+  - package-ecosystem: uv
+    directory: /
+    labels: [vrt]
+    schedule:
+      interval: daily

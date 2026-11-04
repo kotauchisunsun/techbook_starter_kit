@@ -2,7 +2,7 @@
 set -eu
 
 if [ "$#" -ne 2 ]; then
-  echo "Usage: sh scripts/render-pdf-pages.sh PDF_DIR IMAGE_DIR" >&2
+  echo "Usage: sh scripts/pdf/render-pdf-pages.sh PDF_DIR IMAGE_DIR" >&2
   exit 2
 fi
 

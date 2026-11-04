@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Render the actual EPUB archive with MuPDF, not intermediate HTML.
 
-Usage: python scripts/render-epub-mupdf.py INPUT.epub OUTPUT_DIRECTORY
+Usage: npm run check:epub:mupdf -- INPUT.epub OUTPUT_DIRECTORY
        [--widths=420,240] [--height=595] [--font-size=11] [--scale=2]
        [--max-pages=1000]
 

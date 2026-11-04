@@ -79,11 +79,11 @@ test('removes VFM runtime loader while preserving unrelated scripts', async () =
 });
 
 test('sample manuscript renders all formulas without changing its source', async () => {
-  const source = await readFile(new URL('../manuscript/02_examples.md', import.meta.url), 'utf8');
+  const source = await readFile(new URL('../../manuscript/02_examples.md', import.meta.url), 'utf8');
   const { tree, html } = await render(source);
   assert(wrappers(tree).length >= 8);
   assert.doesNotMatch(html, /<math[ >]|<mjx-|MathJax\.js/);
-  assert.equal(await readFile(new URL('../manuscript/02_examples.md', import.meta.url), 'utf8'), source);
+  assert.equal(await readFile(new URL('../../manuscript/02_examples.md', import.meta.url), 'utf8'), source);
 });
 
 test('invalid formula and invalid options fail instead of silently flattening mathematics', async () => {

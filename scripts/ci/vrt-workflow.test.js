@@ -1,6 +1,9 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync, existsSync} from 'node:fs';
+import {readFileSync, existsSync, mkdtempSync, rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {spawnSync} from 'node:child_process';
 import yaml from 'js-yaml';
 const workflow = yaml.load(readFileSync('.github/workflows/visual-regression.yml', 'utf8'));
 const job = workflow.jobs['visual-regression'];
@@ -28,7 +31,7 @@ test('unrelated labels cannot cancel active VRT; only matching PR jobs share con
   assert.equal(workflow.concurrency, undefined);
   assert.equal(job.concurrency.group, 'pdf-vrt-${{ github.event.pull_request.number }}');
   assert.equal(job.concurrency['cancel-in-progress'], true);
-  assert.equal(job['timeout-minutes'], 45);
+  assert.equal(job['timeout-minutes'], 90);
 });
 test('untrusted PR builds have read-only permissions and do not retain checkout credentials', () => {
   assert.deepEqual(workflow.permissions, {contents: 'read'});
@@ -47,8 +50,8 @@ test('Dependabot config supplies vrt directly, rather than a token-driven labeli
 test('baseline/current PDF comparison, 300dpi and seven-day diagnostic artifacts remain', () => {
   const build = job.steps.find(s => s.name === 'Build, render, and compare PDFs in Docker').run;
   for (const command of ['npm ci', 'npm run build', 'npm run build:print', 'npm run check:pdf',
-    'scripts/render-pdf-pages.sh', 'scripts/compare-pdf-pages.js']) assert.ok(build.includes(command));
-  assert.match(readFileSync('scripts/render-pdf-pages.sh', 'utf8'), /-r 300/);
+    'scripts/pdf/render-pdf-pages.sh', 'scripts/vrt/compare-pdf-pages.js']) assert.ok(build.includes(command));
+  assert.match(readFileSync('scripts/pdf/render-pdf-pages.sh', 'utf8'), /-r 300/);
   const uploads = job.steps.filter(s => s.uses?.startsWith('actions/upload-artifact@'));
   assert.equal(uploads.length, 2);
   assert.ok(uploads.every(s => s.with['retention-days'] === 7));
@@ -56,4 +59,37 @@ test('baseline/current PDF comparison, 300dpi and seven-day diagnostic artifacts
   assert.equal(uploads[0].with.name, 'pr-${{ github.event.pull_request.number }}-visual-regression');
   assert.equal(uploads[1].if, 'always()');
   assert.equal(uploads[1].with.archive, false);
+});
+
+test('EPUB uses the same head readers for both independently built sources and combines failures', () => {
+  const epub = job.steps.find(s => s.name === 'Build, render, and compare EPUBs in Docker');
+  assert.equal(epub.if, '${{ !cancelled() }}');
+  assert.match(epub.run, /scripts\/vrt\/run-epub-vrt.sh/);
+  const setup = readFileSync('scripts/vrt/run-epub-vrt.sh', 'utf8');
+  assert.match(setup, /uv sync --locked --only-group vrt/);
+  assert.match(epub.run, /docker build -t techbook-epub-vrt - < scripts\/vrt\/epub-vrt\.Dockerfile/);
+  assert.match(epub.run, /techbook-epub-vrt sh scripts\/vrt\/run-epub-vrt.sh/);
+  assert.match(setup, /node scripts\/vrt\/run-epub-vrt.js/);
+  assert.equal(job.steps.find(s => s.name === 'Combine PDF and EPUB results').if, 'always()');
+  const smoke = yaml.load(readFileSync('.github/workflows/epub-vrt-smoke.yml', 'utf8'));
+  assert.deepEqual(smoke.permissions, {contents: 'read'});
+  assert.ok(smoke.jobs['epub-vrt-smoke'].steps.some(s => s.run?.includes('npm run test:vrt')));
+});
+
+test('host report merge and fallback use runner temp without writing Docker output', t => {
+  const combine = job.steps.find(s => s.name === 'Combine PDF and EPUB results');
+  const prepare = job.steps.find(s => s.name === 'Prepare comparison report');
+  assert.match(combine.run, /output\/visual "\$RUNNER_TEMP\/vrt-report\/pr-\$\{PR_NUMBER\}-vrt-report\.json"/);
+  assert.doesNotMatch(prepare.run, /output\/visual|chown|chmod/);
+  const root = mkdtempSync(join(tmpdir(), 'vrt-report-fallback-'));
+  t.after(() => rmSync(root, {recursive: true, force: true}));
+  const env = {...process.env, RUNNER_TEMP: root, PR_NUMBER: '45'};
+  const execute = () => spawnSync('sh', ['-ec', prepare.run], {cwd: root, env, encoding: 'utf8'});
+  assert.equal(execute().status, 0);
+  const output = join(root, 'vrt-report/pr-45-vrt-report.json');
+  assert.match(JSON.parse(readFileSync(output, 'utf8')).errors[0].reason, /unavailable/);
+  assert.equal(existsSync(join(root, 'output')), false);
+  const original = readFileSync(output, 'utf8');
+  assert.equal(execute().status, 0);
+  assert.equal(readFileSync(output, 'utf8'), original);
 });

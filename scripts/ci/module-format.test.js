@@ -2,14 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';
 import {resolve} from 'node:path';
-import config from '../vivliostyle.config.js';
-import printConfig from '../vivliostyle.print.config.js';
-import documentProcessor from './mermaid.js';
+import config from '../../vivliostyle.config.js';
+import printConfig from '../../vivliostyle.print.config.js';
+import documentProcessor from '../mermaid.js';
 
 test('all first-party JavaScript uses the explicit ESM package scope and .js extension', () => {
   const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
   assert.equal(pkg.type, 'module');
-  const files = [...readdirSync('.'), ...readdirSync('scripts').map(name => `scripts/${name}`)];
+  const files = [...readdirSync('.'), ...readdirSync('scripts', {recursive: true}).map(name => `scripts/${name}`)];
   assert.deepEqual(files.filter(name => /\.[cm]js$/.test(name)), []);
 });
 
@@ -50,7 +50,7 @@ test('GitHub reporter loads the actual ESM helper in both inline steps', async (
 });
 
 test('EPUB inherits content and metadata without changing either PDF output', async () => {
-  const { default: epubConfig } = await import('../vivliostyle.epub.config.js');
+  const { default: epubConfig } = await import('../../vivliostyle.epub.config.js');
   for (const key of ['title', 'author', 'language', 'toc']) {
     assert.deepEqual(epubConfig[key], config[key], key);
   }
@@ -79,7 +79,7 @@ test('EPUB inherits content and metadata without changing either PDF output', as
 });
 
 test('EPUB math and footnotes do not require runtime JavaScript or PDF page margins', async () => {
-  const { default: epubConfig } = await import('../vivliostyle.epub.config.js');
+  const { default: epubConfig } = await import('../../vivliostyle.epub.config.js');
   const html = String(await epubConfig.documentProcessor(epubConfig.vfm, { title: 'EPUB test', lang: 'ja' }).process(
     '# テスト\n\n$x^2=1$ と注釈[^1]。\n\n$$\n\\frac{1}{2}\n$$\n\n[^1]: 注釈本文。'
   ));
@@ -104,15 +104,15 @@ test('all-format and Docker builds include EPUB validation with installed tools'
   assert.equal(scripts.build, 'vivliostyle build');
   assert.equal(scripts['build:epub'], 'vivliostyle build --config vivliostyle.epub.config.js');
   assert.equal(scripts['build:all'], 'npm run build && npm run build:print && npm run build:epub');
-  assert.equal(scripts['check:epub'], 'node scripts/check-epub.js');
-  assert.equal(scripts['check:epub:render'], 'node scripts/render-epub.js');
+  assert.equal(scripts['check:epub'], 'node scripts/epub/check-epub.js');
+  assert.equal(scripts['check:epub:render'], 'node scripts/epub/render-epub.js');
   assert.match(scripts['build:docker'], /npm run build:all && npm run check:pdf -- output\/pdf\/book\.pdf output\/pdf\/book_print\.pdf && npm run check:epub/);
   assert.match(readFileSync('scripts/setup.sh', 'utf8'), /apt-get install[^\n]+\bepubcheck\b/);
 });
 
 
 test('EPUB tables preserve left, center and right alignment with conforming CSS', async () => {
-  const { default: epubConfig } = await import('../vivliostyle.epub.config.js');
+  const { default: epubConfig } = await import('../../vivliostyle.epub.config.js');
   const markdown = '| 左 | 中央 | 右 |\n| :--- | :---: | ---: |\n| a | b | c |';
   const html = String(await epubConfig.documentProcessor(epubConfig.vfm).process(markdown));
   assert.doesNotMatch(html, /\salign=/);

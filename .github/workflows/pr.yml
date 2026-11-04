@@ -17,13 +17,15 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci
-      - uses: actions/setup-python@v6
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
-          python-version: '3.12'
+          version: '0.13.4'
+          enable-cache: true
       - name: Install source lint tools
-        run: python -m pip install -r requirements-lint.txt
+        run: uv sync --locked --only-group lint
       - run: npm run lint:code
       - run: npm test
+      - run: npm run test:python
 
   build:
     runs-on: ubuntu-slim
@@ -118,7 +120,7 @@ jobs:
         with:
           result-encoding: string
           script: |
-            const {artifactDownloadLine, runDetails, retentionNote} = await import(`${process.env.GITHUB_WORKSPACE}/scripts/pr-artifact-notice.js`);
+            const {artifactDownloadLine, runDetails, retentionNote} = await import(`${process.env.GITHUB_WORKSPACE}/scripts/ci/pr-artifact-notice.js`);
             const lines = [];
             for (const [key, suffix, label] of [['PDF', 'pdf.pdf', '通常版 PDF'], ['PRINT_PDF', 'print-pdf.pdf', '印刷用 PDF'], ['EPUB', 'epub.epub', 'EPUB']]) {
               lines.push(await artifactDownloadLine({github, core, context,
@@ -139,12 +141,16 @@ jobs:
         with:
           node-version: '24'
           cache: npm
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: '0.13.4'
+          enable-cache: true
       - run: |
           sudo sh scripts/setup.sh
           npm ci
           npx playwright install --with-deps chromium-headless-shell webkit
-          python -m pip install PyMuPDF==1.26.6
-          python scripts/render-epub-mupdf.test.py
+          uv sync --locked --only-group vrt
+          npm run test:python
       - name: Build EPUB visual fixtures
         run: |
           npm run build:epub
@@ -152,27 +158,27 @@ jobs:
           mkdir -p tmp output/epub-stress
           cat > tmp/epub-stress.config.js <<'EOF'
           import config from '../vivliostyle.epub.config.js';
-          export default { ...config, title: 'EPUB stress fixture', workspaceDir: '.vivliostyle/epub-stress', entry: ['scripts/fixtures/epub-stress.md'], cover: undefined, output: [{path: 'output/epub-stress/stress.epub',format:'epub'}] };
+          export default { ...config, title: 'EPUB stress fixture', workspaceDir: '.vivliostyle/epub-stress', entry: ['scripts/epub/fixtures/epub-stress.md'], cover: undefined, output: [{path: 'output/epub-stress/stress.epub',format:'epub'}] };
           EOF
           npx vivliostyle build --config tmp/epub-stress.config.js
           npm run check:epub -- output/epub-stress/stress.epub
       - name: Render EPUB in narrow and wide readers
         if: ${{ !cancelled() }}
-        run: node scripts/render-epub.js output/epub/book.epub output/epub-visual/current
+        run: node scripts/epub/render-epub.js output/epub/book.epub output/epub-visual/current
       - name: Render long code and equations
         if: ${{ !cancelled() }}
-        run: node scripts/render-epub.js output/epub-stress/stress.epub output/epub-visual/stress
+        run: node scripts/epub/render-epub.js output/epub-stress/stress.epub output/epub-visual/stress
       - name: Render EPUB with WebKit
         if: ${{ !cancelled() }}
-        run: node scripts/render-epub.js output/epub/book.epub output/epub-visual/current-webkit --browser=webkit
+        run: node scripts/epub/render-epub.js output/epub/book.epub output/epub-visual/current-webkit --browser=webkit
       - name: Render long code and equations with WebKit
         if: ${{ !cancelled() }}
-        run: node scripts/render-epub.js output/epub-stress/stress.epub output/epub-visual/stress-webkit --browser=webkit
+        run: node scripts/epub/render-epub.js output/epub-stress/stress.epub output/epub-visual/stress-webkit --browser=webkit
       - name: Render EPUB and stress fixture with MuPDF
         if: ${{ !cancelled() }}
         run: |
-          python scripts/render-epub-mupdf.py output/epub/book.epub output/epub-visual/current-mupdf
-          python scripts/render-epub-mupdf.py output/epub-stress/stress.epub output/epub-visual/stress-mupdf
+          npm run check:epub:mupdf -- output/epub/book.epub output/epub-visual/current-mupdf
+          npm run check:epub:mupdf -- output/epub-stress/stress.epub output/epub-visual/stress-mupdf
       - uses: actions/upload-artifact@v7.0.2
         if: ${{ !cancelled() }}
         with:

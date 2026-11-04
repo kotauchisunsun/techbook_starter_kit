@@ -5,7 +5,7 @@ import { basename, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
-const usage = 'Usage: node scripts/render-epub.js INPUT.epub OUTPUT_DIRECTORY [--baseline] [--browser=chromium|webkit] [--widths=600,360] [--height=780] [--max-pages=1000]';
+const usage = 'Usage: node scripts/epub/render-epub.js INPUT.epub OUTPUT_DIRECTORY [--baseline] [--browser=chromium|webkit] [--widths=600,360] [--height=780] [--max-pages=1000]';
 
 export function parseArguments(args) {
   const positional = args.filter(arg => !arg.startsWith('--'));
