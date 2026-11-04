@@ -21,7 +21,7 @@ npm run check:epub
 - `scripts/pdf/`: PDF の検証・ページ画像化。
 - `scripts/vrt/`: PDF / EPUB の画像比較、比較の実行と結果の集約。
 - `scripts/ci/`: PR artifact の通知、VRT 結果の投稿、ワークフローと構成の回帰テスト。
-- `scripts/mermaid.js` と `scripts/setup.sh`: PDF / EPUB 共通の図の処理と環境セットアップ。
+- `scripts/mermaid.ts` と `scripts/setup.sh`: PDF / EPUB 共通の図の処理と環境セットアップ。
 
 ユニットテストは対象のスクリプトと同じディレクトリに置き、`npm test` で `scripts/**/*.test.{js,ts}` をまとめて実行します。公開している npm コマンドは変わりません。
 
@@ -46,7 +46,7 @@ Python は `.python-version` の 3.12 系、ShellCheck と PyMuPDF は `pyprojec
 - `lint:shell`: `scripts/setup.sh`・`scripts/pdf/render-pdf-pages.sh`・`scripts/vrt/run-epub-vrt.sh` を ShellCheck に直接渡します。シェルを追加したら、このコマンドの対象にも追加してください。Windows でもワイルドカード展開に依存しません。
 - ルートの設定 JS・CSS、JSON・YAML、CI 内の埋め込みコード、Python は対象外です。原稿・文書・コード例・素材・生成物も対象にしません。Ruff は不要です。
 
-TypeScript は `scripts/tsconfig.json` の strict / noEmit で実装とテストを検査します。移行中の JavaScript やルート設定は型検査の対象にしません。実行は tsx に任せ、事前コンパイルやグローバルインストールは不要です。型検査と実行テストは別々に維持します。
+TypeScript は `scripts/tsconfig.json` の strict / noEmit で実装とテストを検査します。移行中の JavaScript やルート設定は型検査の対象にしません。実行は tsx に任せ、事前コンパイルやグローバルインストールは不要です。型検査と実行テストは別々に維持します。ルートの Vivliostyle 設定は JavaScript のまま維持し、設定から使うプロセッサーの `.js` は tsx で TypeScript 実装を読み込む互換用の入口です。`npx vivliostyle` に追加のローダー指定は不要です。
 
 PR と main の CI で Node.js 22.13.0 / 24 の `typecheck`・`lint:code`・回帰テストを実行します。ビルド・EPUB 描画・既存回帰テストは別に維持します。原稿校正の `npm run lint` は任意の別機能です。
 
@@ -64,7 +64,7 @@ PyMuPDF は 2.1 に更新しています。[CVE-2026-3029](https://github.com/ad
 
 メタデータ・章順・表紙は `vivliostyle.config.js`、EPUB の出力設定は `vivliostyle.epub.config.js`、本文の体裁は `epub.css`、表紙の体裁は `epub-cover.css` で調整します。
 
-- PDF・EPUB 共通の `scripts/mermaid.js` は Playwright の Chromium で Mermaid 図を画像化します。README の初期インストールで導入済みなら、EPUB 用に入れ直す必要はありません。
+- PDF・EPUB 共通の `scripts/mermaid.ts` は Playwright の Chromium で Mermaid 図を画像化します。README の初期インストールで導入済みなら、EPUB 用に入れ直す必要はありません。
 - 表紙・裏表紙の SVG はビルド時に PNG へ変換します。編集するのは `assets/front-cover.svg`・`assets/back-cover.svg` などの元画像です。
 - 数式は MathJax の TeX 字体を使った SVG に変換し、上付き文字・分数・根号・複数行の配置を保持します。長い単純な数式は演算子の位置で折り返せます。
 - 本文用の Noto Sans JP、コード用の Noto Sans Mono と配色 CSS を同梱し、注釈は章末に表示します。読書時の数式表示には JavaScript や外部サービスへの接続は不要です。
