@@ -23,16 +23,17 @@ npm run check:epub
 - `scripts/ci/`: PR artifact の通知、VRT 結果の投稿、ワークフローと構成の回帰テスト。
 - `scripts/mermaid.js` と `scripts/setup.sh`: PDF / EPUB 共通の図の処理と環境セットアップ。
 
-ユニットテストは対象のスクリプトと同じディレクトリに置き、`npm test` で `scripts/**/*.test.js` をまとめて実行します。公開している npm コマンドは変わりません。
+ユニットテストは対象のスクリプトと同じディレクトリに置き、`npm test` で `scripts/**/*.test.{js,ts}` をまとめて実行します。公開している npm コマンドは変わりません。
 
 ## scripts のコードを検査する
 
-`npm run lint:code` は `scripts/` 配下の実装コードと既存テストコードを検査します。JavaScript は ESLint、シェルは ShellCheck を使います。独自のファイル探索やワークフロー解析は行いません。自動整形・修正もしません。
+`npm run lint:code` は `scripts/` 配下の実装コードと既存テストコードを検査します。JavaScript / TypeScript は ESLint、シェルは ShellCheck を使います。独自のファイル探索やワークフロー解析は行いません。自動整形・修正もしません。
 
 [uv の公式手順](https://docs.astral.sh/uv/getting-started/installation/)で uv 0.13.4 以上を導入し、`npm ci` の後に実行します。Linux・macOS・WSL・Windows PowerShell で同じコマンドを使えます。
 
 ```sh
 npm run lint:code
+npm run typecheck
 ```
 
 Python は `.python-version` の 3.12 系、ShellCheck と PyMuPDF は `pyproject.toml` と `uv.lock` で管理します。npm の検証コマンドは `uv run --locked` を使い、必要な Python と依存関係を `.venv/` に自動で準備します。仮想環境を手動で有効にする必要はありません。
@@ -41,11 +42,13 @@ Python は `.python-version` の 3.12 系、ShellCheck と PyMuPDF は `pyprojec
 
 通常の PDF・EPUB ビルドには uv は不要です。`.venv/` はコミットしません。
 
-- `lint:js`: ESLint が `scripts/` の `.js` / `.mjs` / `.cjs` を検査します。`*.test.js`・`*.integration.js` と同じ命名の MJS/CJS も含めます。lint 自体の動作確認テストは追加しません。`scripts/epub/fixtures/` の例と、`scripts/` 内の依存関係・生成物は除外します。
+- `lint:js`: ESLint が `scripts/` の `.js` / `.mjs` / `.cjs` / `.ts` を検査します。`*.test.js`・`*.integration.js` と同じ命名の MJS/CJS も含めます。lint 自体の動作確認テストは追加しません。`scripts/epub/fixtures/` の例と、`scripts/` 内の依存関係・生成物は除外します。
 - `lint:shell`: `scripts/setup.sh`・`scripts/pdf/render-pdf-pages.sh`・`scripts/vrt/run-epub-vrt.sh` を ShellCheck に直接渡します。シェルを追加したら、このコマンドの対象にも追加してください。Windows でもワイルドカード展開に依存しません。
 - ルートの設定 JS・CSS、JSON・YAML、CI 内の埋め込みコード、Python は対象外です。原稿・文書・コード例・素材・生成物も対象にしません。Ruff は不要です。
 
-PR と main の CI で `lint:code` を実行します。ビルド・EPUB 描画・既存回帰テストは別に維持します。原稿校正の `npm run lint` は任意の別機能です。
+TypeScript は `scripts/tsconfig.json` の strict / noEmit で実装とテストを検査します。移行中の JavaScript やルート設定は型検査の対象にしません。実行は tsx に任せ、事前コンパイルやグローバルインストールは不要です。型検査と実行テストは別々に維持します。
+
+PR と main の CI で Node.js 22.13.0 / 24 の `typecheck`・`lint:code`・回帰テストを実行します。ビルド・EPUB 描画・既存回帰テストは別に維持します。原稿校正の `npm run lint` は任意の別機能です。
 
 ## 依存関係のセキュリティ更新
 

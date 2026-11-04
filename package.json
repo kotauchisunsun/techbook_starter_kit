@@ -14,10 +14,10 @@
     "build:docker": "docker run --rm -v \"$PWD:/work\" -v /work/node_modules -w /work node:24-bookworm-slim sh -lc 'sh scripts/setup.sh && npm ci && npx playwright install --with-deps chromium-headless-shell && npm run build:all && npm run check:pdf -- output/pdf/book.pdf output/pdf/book_print.pdf && npm run check:epub'",
     "preview": "vivliostyle preview",
     "lint": "textlint \"manuscript/**/*.md\"",
-    "test": "node --test \"scripts/**/*.test.js\"",
-    "check:pdf": "node scripts/pdf/check-pdf.js",
+    "test": "node --import tsx --test \"scripts/**/*.test.{js,ts}\"",
+    "check:pdf": "node --import tsx scripts/pdf/check-pdf.ts",
     "build:epub": "vivliostyle build --config vivliostyle.epub.config.js",
-    "check:epub": "node scripts/epub/check-epub.js",
+    "check:epub": "node --import tsx scripts/epub/check-epub.ts",
     "prebuild:epub": "node scripts/epub/prepare-epub.js",
     "check:epub:render": "node scripts/epub/render-epub.js",
     "lint:code": "npm run lint:js && npm run lint:shell",
@@ -25,7 +25,8 @@
     "lint:shell": "uv run --locked --only-group lint shellcheck --norc scripts/setup.sh scripts/pdf/render-pdf-pages.sh scripts/vrt/run-epub-vrt.sh",
     "test:python": "uv run --locked --no-default-groups python scripts/epub/render-epub-mupdf.test.py",
     "check:epub:mupdf": "uv run --locked --only-group vrt python scripts/epub/render-epub-mupdf.py",
-    "test:vrt": "uv run --locked --only-group vrt node scripts/vrt/epub-vrt.integration.js"
+    "test:vrt": "uv run --locked --only-group vrt node scripts/vrt/epub-vrt.integration.js",
+    "typecheck": "tsc --project scripts/tsconfig.json"
   },
   "dependencies": {
     "@mitsuharu/vivliostyle-theme-noto-sans-jp": "0.2.0",
@@ -40,6 +41,7 @@
     "@mathjax/src": "4.1.3",
     "@napi-rs/canvas": "1.1.0",
     "@resvg/resvg-js": "2.6.2",
+    "@types/node": "22.20.5",
     "@vivliostyle/vfm": "2.7.2",
     "epubjs": "0.3.93",
     "eslint": "10.14.0",
@@ -54,7 +56,9 @@
     "textlint-filter-rule-allowlist": "4.0.0",
     "textlint-filter-rule-node-types": "1.1.0",
     "textlint-rule-preset-japanese": "10.0.4",
-    "tsx": "4.23.15"
+    "tsx": "4.23.15",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.1"
   },
   "overrides": {
     "dompurify": "3.4.17",
