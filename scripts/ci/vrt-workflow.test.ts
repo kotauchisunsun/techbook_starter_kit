@@ -9,14 +9,14 @@ import yaml from 'js-yaml';
 const workflow = yaml.load(readFileSync('.github/workflows/visual-regression.yml', 'utf8')) as Workflow;
 const job = workflow.jobs['visual-regression'];
 const condition = job.if.replace('github.event.pull_request.labels.*.name', 'github.event.pull_request.labels.map(label => label.name)');
-const eligible = new Function('github', 'contains', `return ${condition}`);
-function accepts(action: string, labels: string[], changedLabel?: string, author = 'human', fork = false) {
+const eligible = new Function('github', 'contains', 'vars', `return ${condition}`);
+function accepts(action: string, labels: string[], changedLabel?: string, author = 'human', fork = false, enableDev = 'TRUE') {
   if (!workflow.on.pull_request.types.includes(action)) return false;
   return eligible({event: {action, label: {name: changedLabel}, pull_request: {
     labels: labels.map(name => ({name})), user: {login: author}, head: {repo: {fork}},
-  }}}, (values: string[], value: string) => values.includes(value));
+  }}}, (values: string[], value: string) => values.includes(value), {ENABLE_DEV: enableDev.toUpperCase()});
 }
-test('VRTは人間、Dependabot、フォークのPRでラベルに基づいて実行し、後続のプッシュも対象にする', () => {
+test('保守CI有効時のVRTは人間、Dependabot、フォークのPRでラベルに基づいて実行し、後続のプッシュも対象にする', () => {
   assert.equal(workflow.on.pull_request.branches, undefined);
   for (const author of ['human', 'dependabot[bot]']) for (const fork of [false, true]) {
     for (const action of ['opened', 'reopened', 'synchronize']) {
@@ -27,6 +27,15 @@ test('VRTは人間、Dependabot、フォークのPRでラベルに基づいて�
     assert.equal(accepts('labeled', ['vrt', 'bug'], 'bug', author, fork), false);
     assert.equal(accepts('unlabeled', [], 'vrt', author, fork), false);
   }
+});
+test('保守CI無効時はvrtラベル付きのPRや後続プッシュでもVRTを実行しない', () => {
+  for (const value of ['', 'FALSE', '1', 'yes', ' TRUE ']) {
+    for (const action of ['opened', 'reopened', 'synchronize', 'labeled']) {
+      assert.equal(accepts(action, ['vrt'], 'vrt', 'human', false, value), false);
+      assert.equal(accepts(action, ['vrt'], 'vrt', 'human', true, value), false);
+    }
+  }
+  for (const value of ['TRUE', 'true', 'TrUe']) assert.equal(accepts('labeled', ['vrt'], 'vrt', 'human', false, value), true);
 });
 test('無関係なラベルは実行中のVRTをキャンセルせず、同じPRのジョブだけが同時実行制御を共有する', () => {
   assert.equal(workflow.concurrency, undefined);

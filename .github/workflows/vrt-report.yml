@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   report:
-    if: github.event.workflow_run.event == 'pull_request'
+    if: vars.ENABLE_DEV == 'TRUE' && github.event.workflow_run.event == 'pull_request'
     runs-on: ubuntu-slim
     timeout-minutes: 5
     steps:

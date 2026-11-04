@@ -10,12 +10,14 @@ permissions:
 jobs:
   visual-regression:
     if: >-
+      vars.ENABLE_DEV == 'TRUE' &&
       contains(github.event.pull_request.labels.*.name, 'vrt') &&
       (github.event.action != 'labeled' || github.event.label.name == 'vrt')
     # Keep concurrency inside the eligible job: unrelated labels must not cancel VRT.
     concurrency:
       group: pdf-vrt-${{ github.event.pull_request.number }}
       cancel-in-progress: true
+    # Both comparison pipelines use Docker; ubuntu-slim cannot run them.
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     permissions:
