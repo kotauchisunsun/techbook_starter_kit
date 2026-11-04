@@ -2,9 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';
 import {resolve} from 'node:path';
-import config from '../../vivliostyle.config.js';
+import rawConfig from '../../vivliostyle.config.js';
 import printConfig from '../../vivliostyle.print.config.js';
 import documentProcessor from '../mermaid.js';
+const config = rawConfig as typeof rawConfig & {workspaceDir?: string; vfm?: Parameters<typeof documentProcessor>[0]};
 
 test('プロジェクト内のすべてのJavaScriptは明示的なESMパッケージスコープと.js拡張子を使う', () => {
   const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
@@ -19,10 +20,10 @@ test('ESMのVivliostyle設定はプロセッサ、判型、印刷版のみの表
   assert.equal(typeof documentProcessor, 'function');
   assert.equal(printConfig.size, config.size);
   assert.equal(printConfig.documentProcessor, documentProcessor);
-  assert.equal(config.entry.filter(entry => entry.rel === 'cover').length, 2);
-  assert.equal(printConfig.entry.some(entry => entry.rel === 'cover'), false);
+  assert.equal(config.entry.filter(entry => typeof entry === 'object' && entry.rel === 'cover').length, 2);
+  assert.equal(printConfig.entry.some(entry => typeof entry === 'object' && entry.rel === 'cover'), false);
   assert.equal(printConfig.cover, undefined);
-  assert.deepEqual(printConfig.entry, config.entry.filter(entry => entry.rel !== 'cover'));
+  assert.deepEqual(printConfig.entry, config.entry.filter(entry => typeof entry !== 'object' || entry.rel !== 'cover'));
   assert.equal(config.output[0].path, 'output/pdf/book.pdf');
   assert.equal(printConfig.output[0].path, 'output/pdf/book_print.pdf');
 });
@@ -36,11 +37,11 @@ test('GitHubレポーターは両方のインラインステップで実際のES
   });
   assert.equal(blocks.length, 2);
   const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
-  const outputs = {};
+  const outputs: Record<string, unknown> = {};
   const run = {id: 7, run_attempt: 1, event: 'push'};
   const github = {rest: {actions: {getWorkflowRun: async () => ({data: run})}}};
   const context = {repo: {owner: 'owner', repo: 'repo'}, payload: {workflow_run: run}};
-  const core = {setOutput: (key, value) => {outputs[key] = value;}};
+  const core = {setOutput: (key: string, value: unknown) => {outputs[key] = value;}};
   const processStub = {env: {GITHUB_WORKSPACE: resolve('.'), VRT_PLAN: JSON.stringify({runId: 7, attempt: 1}), REPORT_DIRECTORY: '/unused'}};
   for (const block of blocks) {
     assert.match(block, /await import\(/);
@@ -51,7 +52,7 @@ test('GitHubレポーターは両方のインラインステップで実際のES
 
 test('EPUBは両方のPDF出力を変更せず、本文とメタデータを継承する', async () => {
   const { default: epubConfig } = await import('../../vivliostyle.epub.config.js');
-  for (const key of ['title', 'author', 'language', 'toc']) {
+  for (const key of ['title', 'author', 'language', 'toc'] as const) {
     assert.deepEqual(epubConfig[key], config[key], key);
   }
   assert.deepEqual(epubConfig.copyAsset.excludes, [...config.copyAsset.excludes, 'tmp/**', 'scripts/**']);
@@ -65,7 +66,9 @@ test('EPUBは両方のPDF出力を変更せず、本文とメタデータを継�
       : entry);
   }
   assert.deepEqual(config.entry[0], { rel: 'cover' });
-  assert.equal(config.entry.at(-1).imageSrc, 'assets/back-cover.svg');
+  const last = config.entry.at(-1);
+  assert.ok(last && typeof last === 'object');
+  assert.equal(last.imageSrc, 'assets/back-cover.svg');
   assert.equal(epubConfig.theme, './assets/epub-generated/epub.css');
   assert.equal(epubConfig.workspaceDir, '.vivliostyle/epub');
   assert.notEqual(epubConfig.workspaceDir, config.workspaceDir ?? '.vivliostyle');

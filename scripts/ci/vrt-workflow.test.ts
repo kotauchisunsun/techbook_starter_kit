@@ -1,3 +1,4 @@
+import type {Workflow} from './workflow-types.ts';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync, existsSync, mkdtempSync, rmSync} from 'node:fs';
@@ -5,15 +6,15 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {spawnSync} from 'node:child_process';
 import yaml from 'js-yaml';
-const workflow = yaml.load(readFileSync('.github/workflows/visual-regression.yml', 'utf8'));
+const workflow = yaml.load(readFileSync('.github/workflows/visual-regression.yml', 'utf8')) as Workflow;
 const job = workflow.jobs['visual-regression'];
 const condition = job.if.replace('github.event.pull_request.labels.*.name', 'github.event.pull_request.labels.map(label => label.name)');
 const eligible = new Function('github', 'contains', `return ${condition}`);
-function accepts(action, labels, changedLabel, author = 'human', fork = false) {
+function accepts(action: string, labels: string[], changedLabel?: string, author = 'human', fork = false) {
   if (!workflow.on.pull_request.types.includes(action)) return false;
   return eligible({event: {action, label: {name: changedLabel}, pull_request: {
     labels: labels.map(name => ({name})), user: {login: author}, head: {repo: {fork}},
-  }}}, (values, value) => values.includes(value));
+  }}}, (values: string[], value: string) => values.includes(value));
 }
 test('VRTは人間、Dependabot、フォークのPRでラベルに基づいて実行し、後続のプッシュも対象にする', () => {
   assert.equal(workflow.on.pull_request.branches, undefined);
@@ -41,14 +42,14 @@ test('信頼できないPRのビルドは読み取り専用権限を使い、チ
   assert.equal(workflow.on.pull_request_target, undefined);
   assert.equal(job.steps.some(s => /sticky-pull-request-comment|github-script/.test(s.uses || '')), false);
 });
-test('Dependabot設定はトークンを使うラベル付けワークフローではなく、vrtを直接指定する', () => {
-  const config = yaml.load(readFileSync('.github/dependabot.yml', 'utf8'));
+test("Dependabot設定はトークンを使うラベル付けワークフローではなく、vrtを直接指定する", () => {
+  const config = yaml.load(readFileSync('.github/dependabot.yml', 'utf8')) as {updates: {labels: string[]; schedule: {interval: string}}[]};
   assert.deepEqual(config.updates[0].labels, ['vrt']);
   assert.equal(config.updates[0].schedule.interval, 'daily');
   assert.equal(existsSync('.github/workflows/dependabot-visual-regression.yml'), false);
 });
-test('baselineとcurrentのPDF比較、300dpi、診断用アーティファクトの7日間保持を維持する', () => {
-  const build = job.steps.find(s => s.name === 'Build, render, and compare PDFs in Docker').run;
+test("baselineとcurrentのPDF比較、300dpi、診断用アーティファクトの7日間保持を維持する", () => {
+  const build = job.steps.find(s => s.name === 'Build, render, and compare PDFs in Docker')!.run;
   for (const command of ['npm ci', 'npm run build', 'npm run build:print', 'npm run check:pdf',
     'scripts/pdf/render-pdf-pages.sh', 'scripts/vrt/compare-pdf-pages.ts']) assert.ok(build.includes(command));
   assert.match(readFileSync('scripts/pdf/render-pdf-pages.sh', 'utf8'), /-r 300/);
@@ -61,8 +62,8 @@ test('baselineとcurrentのPDF比較、300dpi、診断用アーティファク�
   assert.equal(uploads[1].with.archive, false);
 });
 
-test('EPUBは独立してビルドした両ソースに同じhead側リーダーを使い、失敗結果を集約する', () => {
-  const epub = job.steps.find(s => s.name === 'Build, render, and compare EPUBs in Docker');
+test("EPUBは独立してビルドした両ソースに同じhead側リーダーを使い、失敗結果を集約する", () => {
+  const epub = job.steps.find(s => s.name === 'Build, render, and compare EPUBs in Docker')!;
   assert.equal(epub.if, '${{ !cancelled() }}');
   assert.match(epub.run, /scripts\/vrt\/run-epub-vrt.sh/);
   const setup = readFileSync('scripts/vrt/run-epub-vrt.sh', 'utf8');
@@ -70,15 +71,15 @@ test('EPUBは独立してビルドした両ソースに同じhead側リーダー
   assert.match(epub.run, /docker build -t techbook-epub-vrt - < scripts\/vrt\/epub-vrt\.Dockerfile/);
   assert.match(epub.run, /techbook-epub-vrt sh scripts\/vrt\/run-epub-vrt.sh/);
   assert.match(setup, /node --import tsx scripts\/vrt\/run-epub-vrt.ts/);
-  assert.equal(job.steps.find(s => s.name === 'Combine PDF and EPUB results').if, 'always()');
-  const smoke = yaml.load(readFileSync('.github/workflows/epub-vrt-smoke.yml', 'utf8'));
+  assert.equal(job.steps.find(s => s.name === 'Combine PDF and EPUB results')!.if, 'always()');
+  const smoke = yaml.load(readFileSync('.github/workflows/epub-vrt-smoke.yml', 'utf8')) as Workflow;
   assert.deepEqual(smoke.permissions, {contents: 'read'});
   assert.ok(smoke.jobs['epub-vrt-smoke'].steps.some(s => s.run?.includes('npm run test:vrt')));
 });
 
-test('ホスト側のレポート統合と代替処理はDocker出力に書き込まず、ランナーの一時領域を使う', t => {
-  const combine = job.steps.find(s => s.name === 'Combine PDF and EPUB results');
-  const prepare = job.steps.find(s => s.name === 'Prepare comparison report');
+test("ホスト側のレポート統合と代替処理はDocker出力に書き込まず、ランナーの一時領域を使う", t => {
+  const combine = job.steps.find(s => s.name === 'Combine PDF and EPUB results')!;
+  const prepare = job.steps.find(s => s.name === 'Prepare comparison report')!;
   assert.match(combine.run, /output\/visual "\$RUNNER_TEMP\/vrt-report\/pr-\$\{PR_NUMBER\}-vrt-report\.json"/);
   assert.doesNotMatch(prepare.run, /output\/visual|chown|chmod/);
   const root = mkdtempSync(join(tmpdir(), 'vrt-report-fallback-'));
@@ -94,7 +95,7 @@ test('ホスト側のレポート統合と代替処理はDocker出力に書き�
   assert.equal(readFileSync(output, 'utf8'), original);
 });
 
-test('tsx is bootstrapped before container orchestration and host report merging', () => {
+test('コンテナー制御とホスト側レポート集約の前にtsxを導入する', () => {
   const setup = readFileSync('scripts/vrt/run-epub-vrt.sh', 'utf8');
   assert.ok(setup.indexOf('npm ci') < setup.indexOf('node --import tsx'));
   const install = job.steps.findIndex(s => s.name === 'Install host report dependencies');

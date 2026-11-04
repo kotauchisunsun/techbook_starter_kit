@@ -9,20 +9,24 @@ const script = workflow.split('          script: |\n')[1].split('\n').map(line =
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 const execute = new AsyncFunction('github', 'context', 'core', script);
 
+interface CleanupArtifact {id: number; name: string; expired?: boolean}
+interface CleanupPull {number: number; state: string; base: {repo: {full_name: string}}}
+interface FixtureOptions {artifacts?: CleanupArtifact[]; state?: string; prResponse?: (pr: CleanupPull, call: number) => unknown; listStatus?: number; pullStatus?: number | ((number: number, call: number) => number); deletionStatus?: number | ((id: number) => number); verifyStatus?: number; verifyArtifacts?: CleanupArtifact[]; summaryStatus?: boolean}
+type SummaryCell = string | {data: string; header: boolean};
 function fixture({artifacts = [], state = 'closed', prResponse, listStatus, pullStatus, deletionStatus,
-  verifyStatus, verifyArtifacts, summaryStatus} = {}) {
-  const deleted = [], checked = [], events = [], removed = new Set();
-  const summary = {text: '', rows: [], written: false,
-    addHeading(text) { this.text += text; return this; },
-    addRaw(text) { this.text += text; return this; },
-    addTable(rows) { this.rows = rows.slice(1); return this; },
+  verifyStatus, verifyArtifacts, summaryStatus}: FixtureOptions = {}) {
+  const deleted: number[] = [], checked: number[] = [], events: string[] = [], removed = new Set<number>();
+  const summary = {text: '', rows: [] as SummaryCell[][], written: false,
+    addHeading(text: string) { this.text += text; return this; },
+    addRaw(text: string) { this.text += text; return this; },
+    addTable(rows: SummaryCell[][]) { this.rows = rows.slice(1); return this; },
     async write() { if (summaryStatus) throw new Error('summary failed'); this.written = true; },
   };
   let listCalls = 0;
-  const failure = status => Object.assign(new Error(`API failed: ${status}`), {status});
+  const failure = (status: number | undefined) => Object.assign(new Error(`API failed: ${status}`), {status});
   const actions = {
     listArtifactsForRepo: 'listArtifactsForRepo',
-    deleteArtifact: async ({owner, repo, artifact_id}) => {
+    deleteArtifact: async ({owner, repo, artifact_id}: {owner: string; repo: string; artifact_id: number}) => {
       assert.equal(owner, 'owner');
       assert.equal(repo, 'repo');
       events.push(`delete:${artifact_id}`);
@@ -32,7 +36,7 @@ function fixture({artifacts = [], state = 'closed', prResponse, listStatus, pull
       if (status) throw failure(status);
     },
   };
-  const github = {rest: {actions, pulls: {get: async ({owner, repo, pull_number}) => {
+  const github = {rest: {actions, pulls: {get: async ({owner, repo, pull_number}: {owner: string; repo: string; pull_number: number}) => {
     assert.equal(owner, 'owner');
     assert.equal(repo, 'repo');
     events.push(`check:${pull_number}`);
@@ -42,7 +46,7 @@ function fixture({artifacts = [], state = 'closed', prResponse, listStatus, pull
     const pr = {number: pull_number, state, base: {repo: {full_name: 'owner/repo'}}};
     return {data: prResponse ? prResponse(pr, checked.length) : pr};
   }}},
-  paginate: async (endpoint, args) => {
+  paginate: async (endpoint: string, args: unknown) => {
     assert.equal(endpoint, actions.listArtifactsForRepo);
     assert.deepEqual(args, {owner: 'owner', repo: 'repo', per_page: 100});
     listCalls++;
@@ -94,7 +98,7 @@ test('汎用名、不正な形式、接頭辞・接尾辞の衝突、安全な�
 
 test('オープン中のPRとPR番号の接頭辞が衝突するものを保持し、後続のクローズ済みPRの削除を続ける', async () => {
   const f = fixture({artifacts: [2, 26, 260, 27].map(number => ({id: number, name: `pr-${number}-pdf.pdf`})),
-    prResponse: pr => ({...pr, state: [26, 27].includes(pr.number) ? 'closed' : 'open'})});
+    prResponse: (pr: CleanupPull) => ({...pr, state: [26, 27].includes(pr.number) ? 'closed' : 'open'})});
   await f.run();
   assert.deepEqual(f.deleted, [26, 27]);
 });
@@ -103,7 +107,7 @@ test('APIでリポジトリとPR番号の一致、および明示的なクロー
   for (const mismatch of [
     {number: 27}, {state: 'unknown'}, {state: undefined}, {base: {repo: {full_name: 'other/repo'}}}, {base: null},
   ]) {
-    const f = fixture({artifacts: [{id: 1, name: 'pr-26-pdf.pdf'}], prResponse: pr => ({...pr, ...mismatch})});
+    const f = fixture({artifacts: [{id: 1, name: 'pr-26-pdf.pdf'}], prResponse: (pr: CleanupPull) => ({...pr, ...mismatch})});
     await f.run();
     assert.deepEqual(f.deleted, []);
   }
@@ -114,7 +118,7 @@ test('フォーク、Dependabot、マージ済み、head削除済みのPRはhead
     {head: {repo: {full_name: 'contributor/fork'}}},
     {user: {login: 'dependabot[bot]'}}, {merged: true}, {head: {repo: null}},
   ]) {
-    const f = fixture({artifacts: [{id: 1, name: 'pr-26-pdf.pdf'}], prResponse: pr => ({...pr, ...metadata})});
+    const f = fixture({artifacts: [{id: 1, name: 'pr-26-pdf.pdf'}], prResponse: (pr: CleanupPull) => ({...pr, ...metadata})});
     await f.run();
     assert.deepEqual(f.deleted, [1]);
   }
@@ -149,7 +153,7 @@ test('期限切れのアーティファクトは照会も削除もしない', as
 
 test('スナップショット取得後のアップロードは次回の実行で処理する', async () => {
   const artifacts = [{id: 1, name: 'pr-26-pdf.pdf'}];
-  const first = fixture({artifacts, prResponse: pr => {
+  const first = fixture({artifacts, prResponse: (pr: CleanupPull) => {
     if (artifacts.length === 1) artifacts.push({id: 2, name: 'pr-26-print-pdf.pdf'});
     return pr;
   }});
@@ -183,7 +187,7 @@ test('サマリーで削除成功、並行処理による消失、保護され�
     {id: 1, name: 'pr-26-pdf.pdf'}, {id: 2, name: 'pr-26-print-pdf.pdf'},
     {id: 3, name: 'pr-27-pdf.pdf'}, {id: 4, name: 'book.pdf'},
   ], deletionStatus: id => id === 2 ? 404 : 0,
-  prResponse: pr => ({...pr, state: pr.number === 27 ? 'open' : 'closed'})});
+  prResponse: (pr: CleanupPull) => ({...pr, state: pr.number === 27 ? 'open' : 'closed'})});
   await f.run();
   assert.equal(f.summary.written, true);
   assert.deepEqual(f.summary.rows, [
@@ -297,8 +301,8 @@ test('EPUBの削除にはクローズ済みPRを必要とし、再オープン�
   const artifacts = [{id: 1, name: 'pr-26-epub.epub'}, {id: 2, name: 'pr-26-epub.epub'}];
   for (const options of [
     {state: 'open'}, {state: 'unknown'}, {pullStatus: 404},
-    {prResponse: pr => ({...pr, base: {repo: {full_name: 'other/repo'}}})},
-    {prResponse: pr => ({...pr, number: 27})},
+    {prResponse: (pr: CleanupPull) => ({...pr, base: {repo: {full_name: 'other/repo'}}})},
+    {prResponse: (pr: CleanupPull) => ({...pr, number: 27})},
     {artifacts: artifacts.map(artifact => ({...artifact, expired: true}))},
   ]) {
     const f = fixture({artifacts, ...options});
