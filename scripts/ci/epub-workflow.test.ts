@@ -1,3 +1,4 @@
+import type {Workflow, Step} from './workflow-types.ts';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync, mkdtempSync, mkdirSync, writeFileSync, readdirSync, rmSync, existsSync} from 'node:fs';
@@ -6,16 +7,16 @@ import {join} from 'node:path';
 import {spawnSync} from 'node:child_process';
 import yaml from 'js-yaml';
 
-const build = yaml.load(readFileSync('.github/workflows/build.yml', 'utf8'));
-const pr = yaml.load(readFileSync('.github/workflows/pr.yml', 'utf8'));
-const uploads = steps => steps.filter(step => step.uses?.startsWith('actions/upload-artifact@'));
-const sourceFiles = [
+const build = yaml.load(readFileSync('.github/workflows/build.yml', 'utf8')) as Workflow;
+const pr = yaml.load(readFileSync('.github/workflows/pr.yml', 'utf8')) as Workflow;
+const uploads = (steps: Step[]) => steps.filter(step => step.uses?.startsWith('actions/upload-artifact@'));
+const sourceFiles: [string, string, Buffer][] = [
   ['pdf/book.pdf', '.pdf', Buffer.from('%PDF normal test bytes\n')],
   ['pdf/book_print.pdf', '_print.pdf', Buffer.from('%PDF print test bytes\n')],
   ['epub/book.epub', '.epub', Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x00, 0xff])],
 ];
 
-function withFixture(callback) {
+function withFixture(callback: (fixture: {root: string; env: NodeJS.ProcessEnv & {COMMAND_LOG: string; GITHUB_OUTPUT: string}; run: (script: string, extraEnv?: NodeJS.ProcessEnv) => import('node:child_process').SpawnSyncReturns<string>}) => void) {
   const root = mkdtempSync(join(tmpdir(), 'epub-workflow-test-'));
   try {
     for (const directory of ['bin', 'output/pdf', 'output/epub']) mkdirSync(join(root, directory), {recursive: true});
@@ -30,7 +31,7 @@ function withFixture(callback) {
   }
 }
 
-test('両ビルドワークフローはアーティファクトやリリース資産の公開前にPDFとEPUBを検証する', () => {
+test("両ビルドワークフローはアーティファクトやリリース資産の公開前にPDFとEPUBを検証する", () => {
   for (const workflow of [build, pr]) {
     const steps = workflow.jobs.build.steps;
     const checkIndex = steps.findIndex(step => step.run?.includes('npm run build:all'));
@@ -53,7 +54,7 @@ test('両ビルドワークフローはアーティファクトやリリース�
     });
     for (const [failedCommand, commandCount] of [
       ['run build:all', 1], ['run check:pdf -- output/pdf/book.pdf output/pdf/book_print.pdf', 2], ['run check:epub', 3],
-    ]) withFixture(({root, run, env}) => {
+    ] as const) withFixture(({root, run, env}) => {
       writeFileSync(join(root, 'bin/npm'), '#!/bin/sh\nprintf "%s\\n" "$*" >> "$COMMAND_LOG"\n[ "${FAIL_NPM_COMMAND:-}" != "$*" ]\n', {mode: 0o755});
       assert.notEqual(run(steps[checkIndex].run, {FAIL_NPM_COMMAND: failedCommand}).status, 0);
       assert.equal(readFileSync(env.COMMAND_LOG, 'utf8').trim().split('\n').length, commandCount);
@@ -62,9 +63,9 @@ test('両ビルドワークフローはアーティファクトやリリース�
   }
 });
 
-test('リリースは同じJSTタイムスタンプでPDFを2つとEPUBを1つ準備し、バイト列を変更しない', () => {
-  const prepare = build.jobs.build.steps.find(step => step.id === 'release');
-  const publish = build.jobs.build.steps.find(step => step.uses?.startsWith('svenstaro/upload-release-action@'));
+test("リリースは同じJSTタイムスタンプでPDFを2つとEPUBを1つ準備し、バイト列を変更しない", () => {
+  const prepare = build.jobs.build.steps.find(step => step.id === 'release')!;
+  const publish = build.jobs.build.steps.find(step => step.uses?.startsWith('svenstaro/upload-release-action@'))!;
   withFixture(({root, run, env}) => {
     const tag = '2026-11-03-193500';
     writeFileSync(join(root, 'bin/date'), `#!/bin/sh\n[ "$TZ" = Asia/Tokyo ] && [ "$1" = '+%Y-%m-%d-%H%M%S' ] || exit 1\nprintf '%s\\n' '${tag}'\n`, {mode: 0o755});
@@ -87,14 +88,14 @@ test('リリースは同じJSTタイムスタンプでPDFを2つとEPUBを1つ�
   });
 });
 
-test('main限定のリリース方針、テスト済みビルドへの依存、既存の手動PDFアーティファクトを維持する', () => {
+test("main限定のリリース方針、テスト済みビルドへの依存、既存の手動PDFアーティファクトを維持する", () => {
   assert.deepEqual(build.on, {push: {branches: ['main']}, workflow_dispatch: null});
   assert.equal(build.jobs.build.needs, 'test');
   assert.deepEqual(build.permissions, {contents: 'read'});
   assert.deepEqual(build.jobs.build.permissions, {contents: 'write'});
-  assert.equal(build.jobs.build.steps.find(step => step.uses?.startsWith('actions/checkout@')).with['persist-credentials'], false);
-  const prepare = build.jobs.build.steps.find(step => step.id === 'release');
-  const publish = build.jobs.build.steps.find(step => step.uses?.startsWith('svenstaro/upload-release-action@'));
+  assert.equal(build.jobs.build.steps.find(step => step.uses?.startsWith('actions/checkout@'))!.with['persist-credentials'], false);
+  const prepare = build.jobs.build.steps.find(step => step.id === 'release')!;
+  const publish = build.jobs.build.steps.find(step => step.uses?.startsWith('svenstaro/upload-release-action@'))!;
   for (const step of [prepare, publish]) {
     assert.equal(step.if, "github.ref == 'refs/heads/main'");
     assert.equal(step['continue-on-error'], undefined);
@@ -114,12 +115,12 @@ test('main限定のリリース方針、テスト済みビルドへの依存、�
   }
 });
 
-test('PRのEPUBはリリース権限を追加せず、直接ダウンロードと読み取り専用のビルド権限を維持する', () => {
+test("PRのEPUBはリリース権限を追加せず、直接ダウンロードと読み取り専用のビルド権限を維持する", () => {
   assert.deepEqual(pr.on, {pull_request: null});
   assert.deepEqual(pr.permissions, {contents: 'read'});
   assert.deepEqual(pr.jobs.build.permissions, {contents: 'read', actions: 'read'});
   assert.equal(pr.jobs['docker-build'].permissions, undefined);
-  assert.equal(pr.jobs['docker-build'].steps.find(step => step.run).run, 'npm run build:docker');
+  assert.equal(pr.jobs['docker-build'].steps.find(step => step.run)!.run, 'npm run build:docker');
   const artifacts = uploads(pr.jobs.build.steps);
   assert.deepEqual(artifacts.map(step => [step.id, step.with.name, step.with.path]), [
     ['pdf', 'pr-${{ github.event.pull_request.number }}-pdf.pdf', '${{ runner.temp }}/pr-artifacts/pr-${{ github.event.pull_request.number }}-pdf.pdf'],
@@ -131,7 +132,7 @@ test('PRのEPUBはリリース権限を追加せず、直接ダウンロード�
     assert.equal(step.with['retention-days'], 7);
     assert.equal(step.with['if-no-files-found'], 'error');
   }
-  const notice = pr.jobs.build.steps.find(step => step.id === 'artifact_notice');
+  const notice = pr.jobs.build.steps.find(step => step.id === 'artifact_notice')!;
   for (const [key, id] of [['PDF', 'pdf'], ['PRINT_PDF', 'print_pdf'], ['EPUB', 'epub']]) {
     assert.equal(notice.env[`${key}_ID`], `\${{ steps.${id}.outputs.artifact-id }}`);
     assert.equal(notice.env[`${key}_URL`], `\${{ steps.${id}.outputs.artifact-url }}`);

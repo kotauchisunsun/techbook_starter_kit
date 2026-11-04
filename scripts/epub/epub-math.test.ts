@@ -1,16 +1,21 @@
+import type { Root, RootContent, Element } from 'hast';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { VFM } from '@vivliostyle/vfm';
-import epubMath from './epub-math.js';
+import epubMath from './epub-math.ts';
 
-const collect = (node, predicate) => [...(predicate(node) ? [node] : []), ...(node.children ?? []).flatMap(child => collect(child, predicate))];
-const elements = (tree, tag) => collect(tree, node => node.tagName === tag);
-const wrappers = tree => collect(tree, node => node.properties?.className?.includes('epub-math'));
-async function render(markdown, options = {}, extra = {}) {
-  let tree;
+const collect = (node: Root | RootContent, predicate: (node: Element) => boolean): Element[] => [
+  ...(node.type === 'element' && predicate(node) ? [node] : []),
+  ...('children' in node ? node.children : []).flatMap(child => collect(child, predicate)),
+];
+const elements = (tree: Root | RootContent, tag: string) => collect(tree, node => node.tagName === tag);
+const wrappers = (tree: Root) => collect(tree, node => Array.isArray(node.properties.className) && node.properties.className.includes('epub-math'));
+async function render(markdown: string, options: Parameters<typeof epubMath>[0] = {}, extra: Parameters<typeof VFM>[0] = {}) {
+  let tree: Root | undefined;
   const result = await VFM({ mathRenderer: 'mathjax', partial: true, ...extra })
-    .use(epubMath, options).use(() => value => { tree = value; }).process(markdown);
+    .use(epubMath, options).use(() => (value: unknown) => { tree = value as Root; }).process(markdown);
+  assert(tree);
   return { tree, html: String(result) };
 }
 
@@ -19,12 +24,16 @@ test('インラインの上付き文字を、ベースラインに沿う寸法�
   const wrapper = wrappers(tree)[0];
   assert.equal(wrapper.properties.ariaLabel, 'x^2-3x+2=0');
   assert.equal(wrapper.properties.role, 'math');
+  assert(Array.isArray(wrapper.properties.className));
   assert(wrapper.properties.className.includes('epub-math-inline'));
   assert(elements(wrapper, 'svg').length > 0);
   assert(elements(wrapper, 'path').length > 0);
   for (const svg of elements(wrapper, 'svg')) {
-    assert.match(svg.properties.style, /width:[\d.]+em;height:auto;vertical-align:-?[\d.]+em;/);
+    assert.equal(typeof svg.properties.style, 'string');
+    assert.match(String(svg.properties.style), /width:[\d.]+em;height:auto;vertical-align:-?[\d.]+em;/);
     assert.equal(svg.properties.ariaHidden, 'true');
+    assert(typeof svg.properties.width === 'number');
+    assert(typeof svg.properties.height === 'number');
     assert(svg.properties.width > 0);
     const [, , width, height] = String(svg.properties.viewBox).split(' ').map(Number);
     assert(Math.abs(svg.properties.width - width / 1000 * 64) < 0.00001);
@@ -46,6 +55,7 @@ x(x-1)-2(x-1) &= 0 \\
 \end{aligned}
 $$`);
   const wrapper = wrappers(tree)[0];
+  assert(Array.isArray(wrapper.properties.className));
   assert(wrapper.properties.className.includes('epub-math-display'));
   assert.equal(elements(wrapper, 'svg').length, 1);
   assert.equal((html.match(/data-mml-node="mtr"/g) ?? []).length, 4);

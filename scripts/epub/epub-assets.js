@@ -1,11 +1,5 @@
-// Generated assets are kept separate from source illustrations and PDF themes.
-export const epubAssetDirectory = 'assets/epub-generated';
+// Keep the plain-JavaScript Vivliostyle configuration loadable without a CLI loader.
+import '../register-typescript.js';
 
-export function epubCoverEntries(config) {
-  return config.entry.flatMap((entry, index) => {
-    if (typeof entry !== 'object' || entry.rel !== 'cover') return [];
-    const source = entry.imageSrc ?? (typeof config.cover === 'string' ? config.cover : config.cover?.src);
-    return source ? [{ index, source, target: /\.svg$/i.test(source)
-      ? `${epubAssetDirectory}/cover-${index}.png` : source }] : [];
-  });
-}
+const implementation = await import('./epub-assets.ts');
+export const { epubAssetDirectory, epubCoverEntries } = implementation;

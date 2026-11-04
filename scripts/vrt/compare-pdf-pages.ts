@@ -1,10 +1,11 @@
+import type {Difference, DifferenceImages} from './types.ts';
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 const [before, after, diff, report] = process.argv.slice(2);
 if (!before || !after || !diff || !report) {
-  console.error('Usage: node scripts/vrt/compare-pdf-pages.js BEFORE_IMAGES AFTER_IMAGES DIFF_IMAGES REPORT_JSON');
+  console.error('Usage: node --import tsx scripts/vrt/compare-pdf-pages.ts BEFORE_IMAGES AFTER_IMAGES DIFF_IMAGES REPORT_JSON');
   process.exit(2);
 }
 if ([before, after].some((dir) => resolve(dir) === resolve(diff))) {
@@ -12,15 +13,15 @@ if ([before, after].some((dir) => resolve(dir) === resolve(diff))) {
 }
 
 mkdirSync(diff, { recursive: true });
-const pages = (dir) => new Set(readdirSync(dir).filter((name) => /^book(?:_print)?-\d+\.png$/.test(name)));
+const pages = (dir: string) => new Set(readdirSync(dir).filter((name) => /^book(?:_print)?-\d+\.png$/.test(name)));
 for (const page of pages(diff)) rmSync(join(diff, page));
 const oldPages = pages(before);
 const newPages = pages(after);
 if (oldPages.size === 0) throw new Error('比較元の画像がありません');
 
-const errors = [];
+const errors: Difference[] = [];
 for (const page of [...new Set([...oldPages, ...newPages])].sort()) {
-  const images = {
+  const images: DifferenceImages = {
     before: oldPages.has(page) ? `before/${page}` : null,
     after: newPages.has(page) ? `after/${page}` : null,
     diff: null,
@@ -34,14 +35,14 @@ for (const page of [...new Set([...oldPages, ...newPages])].sort()) {
   const newFile = join(after, page);
   const comparison = spawnSync('compare', ['-metric', 'AE', '-fuzz', '4%', oldFile, newFile, 'null:'], { encoding: 'utf8' });
   const pixels = comparison.stderr?.trim();
-  if (comparison.error || ![0, 1].includes(comparison.status) || !/^\d+$/.test(pixels)) {
+  if (comparison.error || (comparison.status !== 0 && comparison.status !== 1) || !/^\d+$/.test(pixels)) {
     throw new Error(`${page}: 比較に失敗しました: ${comparison.error?.message || pixels}`);
   }
   if (Number(pixels) <= 100) continue;
 
   const diffFile = join(diff, page);
   const rendering = spawnSync('compare', ['-fuzz', '4%', oldFile, newFile, diffFile], { encoding: 'utf8' });
-  if (rendering.error || ![0, 1].includes(rendering.status) || !existsSync(diffFile)) {
+  if (rendering.error || (rendering.status !== 0 && rendering.status !== 1) || !existsSync(diffFile)) {
     throw new Error(`${page}: 差分画像の生成に失敗しました: ${rendering.error?.message || rendering.stderr?.trim()}`);
   }
   images.diff = `diff/${page}`;

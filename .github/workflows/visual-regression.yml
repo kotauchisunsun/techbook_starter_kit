@@ -33,6 +33,16 @@ jobs:
         run: |
           baseline=$(git merge-base HEAD "${{ github.event.pull_request.base.sha }}")
           git worktree add --detach "$RUNNER_TEMP/baseline" "$baseline"
+      # Install before Docker creates anonymous node_modules mount points.
+      # This keeps the host directory runner-owned for report combining.
+      - uses: actions/setup-node@v7.1.0
+        if: always()
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install host report dependencies
+        if: always()
+        run: npm ci
       - name: Build, render, and compare PDFs in Docker
         run: |
           docker run --rm \
@@ -55,7 +65,7 @@ jobs:
               cd /work/current
               sh scripts/pdf/render-pdf-pages.sh /work/baseline/output/pdf output/visual/before
               sh scripts/pdf/render-pdf-pages.sh output/pdf output/visual/after
-              node scripts/vrt/compare-pdf-pages.js output/visual/before output/visual/after output/visual/diff output/visual/pdf-report.json
+              node --import tsx scripts/vrt/compare-pdf-pages.ts output/visual/before output/visual/after output/visual/diff output/visual/pdf-report.json
             '
       - name: Build, render, and compare EPUBs in Docker
         if: ${{ !cancelled() }}
@@ -73,7 +83,7 @@ jobs:
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         # Docker outputs can be root-owned; host writes belong in runner temp.
-        run: node scripts/vrt/combine-vrt-reports.js output/visual "$RUNNER_TEMP/vrt-report/pr-${PR_NUMBER}-vrt-report.json"
+        run: node --import tsx scripts/vrt/combine-vrt-reports.ts output/visual "$RUNNER_TEMP/vrt-report/pr-${PR_NUMBER}-vrt-report.json"
       - uses: actions/upload-artifact@v7.0.2
         id: visual
         if: failure()

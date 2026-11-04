@@ -6,8 +6,8 @@ import { PDFDocument, PageSizes } from 'pdf-lib';
 
 const { default: config } = await import(pathToFileURL(resolve('vivliostyle.config.js')).href);
 const { size = 'letter' } = config;
-const mmToPoints = (mm) => mm * 72 / 25.4;
-const presets = {
+const mmToPoints = (mm: number) => mm * 72 / 25.4;
+const presets: Record<string, readonly number[]> = {
   A5: PageSizes.A5,
   A4: PageSizes.A4,
   A3: PageSizes.A3,
@@ -19,9 +19,9 @@ const presets = {
   legal: PageSizes.Legal,
   ledger: [...PageSizes.Tabloid].reverse(),
 };
-const units = { mm: 72 / 25.4, cm: 72 / 2.54, in: 72, pt: 1, px: 0.75 };
+const units: Record<string, number> = { mm: 72 / 25.4, cm: 72 / 2.54, in: 72, pt: 1, px: 0.75 };
 
-function parseLength(value) {
+function parseLength(value: string) {
   const match = value.trim().match(/^(\d+(?:\.\d+)?|\.\d+)(mm|cm|in|pt|px)$/);
   assert(match && Number(match[1]) > 0, `判型の指定が不正です: ${size}`);
   return Number(match[1]) * units[match[2]];
