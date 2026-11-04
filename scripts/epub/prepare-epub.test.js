@@ -11,7 +11,7 @@ import { epubAssetDirectory, epubCoverEntries } from './epub-assets.js';
 
 const require = createRequire(import.meta.url);
 
-test('incremental EPUB preparation removes only obsolete generated math assets', async () => {
+test('EPUB の差分準備では不要になった数式の生成素材だけを削除する', async () => {
   const outputRoot = mkdtempSync(join(tmpdir(), 'prepare-epub-obsolete-'));
   try {
     const generated = join(outputRoot, epubAssetDirectory);
@@ -25,7 +25,7 @@ test('incremental EPUB preparation removes only obsolete generated math assets',
   } finally { rmSync(outputRoot, { recursive: true, force: true }); }
 });
 
-test('npm EPUB build prepares its configured destination without deleting prior output', () => {
+test('npm の EPUB ビルドは既存の出力を削除せず、設定された出力先を準備する', () => {
   const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
   assert.equal(pkg.scripts['prebuild:epub'], 'node scripts/epub/prepare-epub.js');
   const cwd = mkdtempSync(join(tmpdir(), 'prepare-epub-'));
@@ -46,7 +46,7 @@ test('npm EPUB build prepares its configured destination without deleting prior 
   }
 });
 
-test('EPUB cover mapping preserves order, explicit image sources and bitmap covers', () => {
+test('EPUB の表紙対応付けは順序・明示した画像ソース・ビットマップ表紙を保つ', () => {
   const config = {
     cover: { src: 'assets/front.SVG' },
     entry: [{ rel: 'cover' }, { rel: 'contents' }, 'chapter.md',
@@ -63,7 +63,7 @@ test('EPUB cover mapping preserves order, explicit image sources and bitmap cove
   assert.deepEqual(epubCoverEntries({ entry: [{ rel: 'cover' }, 'chapter.md'] }), []);
 });
 
-test('EPUB preparation rasterizes SVG covers with their dimensions and pixels and leaves bitmap sources intact', async () => {
+test('EPUB の準備は SVG 表紙の寸法と画素を保ってラスタライズし、ビットマップの元画像を変更しない', async () => {
   const root = mkdtempSync(join(tmpdir(), 'prepare-epub-covers-'));
   try {
     mkdirSync(join(root, 'assets/fonts'), { recursive: true });
@@ -98,7 +98,7 @@ test('EPUB preparation rasterizes SVG covers with their dimensions and pixels an
   }
 });
 
-test('EPUB preparation bundles portable token styles with every referenced body font', async () => {
+test('EPUB の準備は移植可能なトークン用スタイルと参照されるすべての本文フォントを同梱する', async () => {
   const outputRoot = mkdtempSync(join(tmpdir(), 'prepare-epub-fonts-'));
   try {
     await prepareEpub({ outputRoot, source: { entry: [] } });
@@ -148,7 +148,7 @@ test('EPUB preparation bundles portable token styles with every referenced body 
   }
 });
 
-test('EPUB license XHTML escapes headings and full license text safely', () => {
+test('EPUB のライセンス XHTML は見出しとライセンス全文を安全にエスケープする', () => {
   // Compare the complete document rather than trying to blacklist HTML tags.
   // Keep expected encodings literal, independent of the production escape code.
   const cases = [
@@ -173,7 +173,7 @@ test('EPUB license XHTML escapes headings and full license text safely', () => {
   }
 });
 
-test('EPUB preparation includes the complete licenses for every bundled style and font', async () => {
+test('EPUB の準備は同梱するすべてのスタイルとフォントのライセンス全文を含める', async () => {
   const outputRoot = mkdtempSync(join(tmpdir(), 'prepare-epub-licenses-'));
   try {
     await prepareEpub({ outputRoot, source: { entry: [] } });
@@ -194,7 +194,7 @@ test('EPUB preparation includes the complete licenses for every bundled style an
   }
 });
 
-test('SVG cover conversion preserves letter spacing instead of collapsing subtitle tracking', async () => {
+test('SVG 表紙の変換は副題の字間を詰めず、文字間隔を保つ', async () => {
   const root = mkdtempSync(join(tmpdir(), 'prepare-epub-tracking-'));
   try {
     mkdirSync(join(root, 'assets/fonts'), { recursive: true });

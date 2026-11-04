@@ -56,7 +56,7 @@ async function withReport(fn, contents = JSON.stringify({errors: [{page: 'book-1
   } finally { rmSync(directory, {recursive: true, force: true}); }
 }
 
-test('validates fork and Dependabot-style read-only upstream runs using API metadata', async () => {
+test('APIメタデータでフォークとDependabot型の読み取り専用の先行実行を検証する', async () => {
   const f = fixture();
   const p = await f.prepare();
   assert.equal(p.prNumber, 26); assert.equal(p.reportId, 40); assert.equal(p.visualId, 41);
@@ -65,14 +65,14 @@ test('validates fork and Dependabot-style read-only upstream runs using API meta
     {owner: 'owner', repo: 'repo', run_id: 100, filter: 'latest', per_page: 100});
 });
 
-test('empty fork pull_requests resolves only an unambiguous matching API PR', async () => {
+test('フォークのpull_requestsが空の場合はAPIで一致するPRを一意に特定できる場合のみ解決する', async () => {
   assert.equal((await fixture({run: {pull_requests: []}}).prepare()).prNumber, 26);
   const f = fixture({run: {pull_requests: []}});
   assert.equal(await fixture({run: {pull_requests: []}, open: [f.pr, {...f.pr, number: 27}]}).prepare(), null);
   assert.equal(await fixture({run: {pull_requests: []}, open: [{...f.pr, head: {sha: 'b'.repeat(40)}}]}).prepare(), null);
 });
 
-test('rejects wrong run, repository, workflow, event, attempt and incomplete conclusions', async () => {
+test('実行、リポジトリ、ワークフロー、イベント、試行の不一致と未確定の結果を拒否する', async () => {
   for (const run of [{id: 101}, {run_attempt: 3}, {event: 'push'}, {status: 'in_progress'},
     {conclusion: 'cancelled'}, {conclusion: 'skipped'}, {repository: {full_name: 'other/repo'}},
     {head_sha: 'invalid'}, {head_repository: {full_name: 'other/repo'}}, {pull_requests: [{number: -1}, {number: 26}, {number: 27}]}]) {
@@ -81,20 +81,20 @@ test('rejects wrong run, repository, workflow, event, attempt and incomplete con
   assert.equal(await fixture({path: '.github/workflows/other.yml'}).prepare(), null);
 });
 
-test('rejects closed, unlabelled, different-head and different-base-repository PRs', async () => {
+test('クローズ済み、ラベルなし、head不一致、baseリポジトリ不一致のPRを拒否する', async () => {
   for (const pr of [{state: 'closed'}, {number: 27}, {labels: []},
     {head: {sha: 'b'.repeat(40), repo: {full_name: 'fork/repo'}}}, {base: {repo: {full_name: 'other/repo'}}}]) {
     assert.equal(await fixture({pr}).prepare(), null);
   }
 });
 
-test('skipped or missing VRT job is not a successful visual comparison', async () => {
+test('VRTジョブがスキップされた場合や存在しない場合は画像比較の成功としない', async () => {
   assert.equal(await fixture({job: {conclusion: 'skipped'}, run: {conclusion: 'success'}}).prepare(), null);
   assert.equal(await fixture({jobs: []}).prepare(), null);
   assert.equal(await fixture({job: {status: 'in_progress'}}).prepare(), null);
 });
 
-test('accepts only bounded, unique, current-attempt artifacts from the exact run', async () => {
+test('該当する実行の現在の試行から、制限内で重複しないアーティファクトのみを受け入れる', async () => {
   const base = {id: 40, name: 'pr-26-vrt-report.json', size_in_bytes: 300,
     workflow_run: {id: 100}, created_at: '2026-10-29T20:01:00Z'};
   for (const mismatch of [{size_in_bytes: 1048577}, {size_in_bytes: 0}, {expired: true},
@@ -105,7 +105,7 @@ test('accepts only bounded, unique, current-attempt artifacts from the exact run
   assert.equal((await fixture({artifacts: [base, {...base, id: 42}]}).prepare()).reportId, null);
 });
 
-test('failure comment preserves safe details, actual expiry, head and exact attempt link', async () => {
+test('失敗コメントは安全な詳細、実際の有効期限、head、正確な試行へのリンクを保持する', async () => {
   const f = fixture(), plan = await f.prepare();
   await withReport(async directory => assert.equal(await publish({...f, plan, directory}), true));
   assert.equal(f.writes.length, 1);
@@ -116,13 +116,13 @@ test('failure comment preserves safe details, actual expiry, head and exact atte
   assert.equal(f.writes[0].issue_number, 26);
 });
 
-test('success comment does not read a missing diagnostic file or claim skipped success', async () => {
+test('成功コメントは存在しない診断ファイルを読まず、スキップを成功としない', async () => {
   const f = fixture({run: {conclusion: 'success'}, job: {conclusion: 'success'}}), plan = await f.prepare();
   await withReport(async directory => assert.equal(await publish({...f, plan, directory}), true), null);
   assert.match(f.writes[0].body, /差分はありません/); assert.equal(f.warnings.length, 0);
 });
 
-test('missing, malformed, oversized or symlinked reports preserve log fallback', async () => {
+test('レポートが欠落、不正、サイズ超過、シンボリックリンクの場合もログへの代替リンクを保持する', async () => {
   for (const content of [null, 'not json', JSON.stringify({errors: [{}]}), 'x'.repeat(1048577)]) {
     const f = fixture(), plan = await f.prepare();
     await withReport(async directory => await publish({...f, plan, directory}), content);
@@ -138,7 +138,7 @@ test('missing, malformed, oversized or symlinked reports preserve log fallback',
   assert.match(f.writes[0].body, /詳細レポートを取得できません/);
 });
 
-test('report text cannot inject Markdown, HTML, mentions or arbitrary image paths', () => {
+test('レポート本文からMarkdown、HTML、メンション、任意の画像パスを注入できない', () => {
   for (const page of ['<script>@all', '<SCRIPT>@all', '<img src=x>@all']) {
     const safe = reportLines(JSON.stringify({errors: [{page, reason: '[click](https://evil) @owner `x`'}]}));
     assert.equal(safe.includes('<'), false);
@@ -150,7 +150,7 @@ test('report text cannot inject Markdown, HTML, mentions or arbitrary image path
   assert.throws(() => reportLines(JSON.stringify({errors: Array(201).fill({reason: 'x'})})), /Invalid/);
 });
 
-test('newer result and repeated same attempt cannot be overwritten; older bot comment updates', async () => {
+test('新しい結果と同じ試行の再実行では上書きせず、古いbotコメントは更新する', async () => {
   for (const status of ['101:1', '100:2', '100:3']) {
     const f = fixture({comments: [{id: 1, user: {login: 'github-actions[bot]'}, body: `<!-- pdf-visual-regression -->\n<!-- vrt-run:${status} -->`}]}), plan = await f.prepare();
     await withReport(async directory => assert.equal(await publish({...f, plan, directory}), false));
@@ -161,7 +161,7 @@ test('newer result and repeated same attempt cannot be overwritten; older bot co
   assert.equal(f.writes[0].type, 'update'); assert.equal(f.writes[0].comment_id, 1);
 });
 
-test('head/label is rechecked immediately before posting, and user comments are not edited', async () => {
+test('投稿直前にheadとラベルを再確認し、ユーザーのコメントは編集しない', async () => {
   const f = fixture({prAtCall: (pr, count) => count >= 3 ? {...pr, labels: []} : pr}), plan = await f.prepare();
   await withReport(async directory => assert.equal(await publish({...f, plan, directory}), false));
   assert.equal(f.writes.length, 0);
@@ -170,7 +170,7 @@ test('head/label is rechecked immediately before posting, and user comments are 
   assert.equal(user.writes[0].type, 'create');
 });
 
-test('reporter checks out only trusted workflow SHA and downloads only a validated artifact to temp', () => {
+test('レポーターは信頼できるワークフローSHAのみをチェックアウトし、検証済みアーティファクトのみを一時領域にダウンロードする', () => {
   const workflow = readFileSync('.github/workflows/vrt-report.yml', 'utf8');
   assert.match(workflow, /workflow_run:/); assert.match(workflow, /ref: \$\{\{ github.workflow_sha \}\}/);
   assert.match(workflow, /persist-credentials: false/);
@@ -179,7 +179,7 @@ test('reporter checks out only trusted workflow SHA and downloads only a validat
   assert.doesNotMatch(workflow, /pull_request_target|npm (ci|install)|head\.sha/);
 });
 
-test('report escaping preserves every Markdown escape and strips control characters', () => {
+test('レポートのエスケープ処理はすべてのMarkdownエスケープを保持し、制御文字を除去する', () => {
   const symbols = '\\`*_{}[]()#+!|';
   const control = String.fromCharCode(...Array.from({length: 32}, (_, i) => i), 127);
   const reason = symbols + control + '&<>@日本語';
@@ -188,7 +188,7 @@ test('report escaping preserves every Markdown escape and strips control charact
   assert.equal(reportLines(JSON.stringify({errors: [{reason}]})), '\n### ビルドエラー\n' + escaped);
 });
 
-test('EPUB artifact paths are allowed without widening path traversal or renderer scope', () => {
+test('パストラバーサルの許容範囲やレンダラーの対象範囲を広げずにEPUBアーティファクトのパスを許可する', () => {
   for (const renderer of ['chromium', 'webkit', 'mupdf']) {
     const path = `epub/diff/${renderer}/600x780/page-0001.png`;
     assert.match(reportLines(JSON.stringify({errors: [{reason: 'pixels changed', images: {diff: path}}]})), /page-0001/);

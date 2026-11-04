@@ -61,7 +61,7 @@ function fixture({artifacts = [], state = 'closed', prResponse, listStatus, pull
     {repo: {owner: 'owner', repo: 'repo'}}, {info() {}, summary})};
 }
 
-test('cleanup uses scheduled/default-branch API-only execution with unchanged permissions', () => {
+test('クリーンアップは権限を変えず、スケジュール実行と既定ブランチでのAPI操作のみを使う', () => {
   assert.equal(workflow.split('on:\n')[1].split('\npermissions:')[0],
     "  schedule:\n    # Avoid the start-of-hour peak. Cleanup uses only default-branch code.\n    - cron: '17 * * * *'\n  workflow_dispatch:\n");
   assert.equal(workflow.split('permissions:\n')[1].split('\njobs:')[0],
@@ -71,7 +71,7 @@ test('cleanup uses scheduled/default-branch API-only execution with unchanged pe
   assert.doesNotMatch(workflow, /pull_request_target|actions\/checkout|download-artifact|context\.issue/);
 });
 
-test('deletes exact supported names for multiple closed PRs, including legacy ZIPs and comparison images', async () => {
+test('複数のクローズ済みPRについて、旧形式のZIPと比較画像を含む対応名に完全一致するものを削除する', async () => {
   const suffixes = ['pdf.pdf', 'print-pdf.pdf', 'epub.epub', 'epub-visual', 'epub-vrt-smoke', 'pdf', 'print-pdf', 'visual-regression', 'vrt-report.json'];
   const names = [26, 27].flatMap(number => suffixes.map(suffix => `pr-${number}-${suffix}`));
   const f = fixture({artifacts: names.map((name, id) => ({name, id: id + 1}))});
@@ -80,7 +80,7 @@ test('deletes exact supported names for multiple closed PRs, including legacy ZI
   assert.deepEqual(f.checked, [...Array(9).fill(26), ...Array(9).fill(27), 26, 27]);
 });
 
-test('does not select generic, malformed, prefix/suffix collision or unsafe-number names', async () => {
+test('汎用名、不正な形式、接頭辞・接尾辞の衝突、安全な整数の範囲外の番号を含む名前は選択しない', async () => {
   const names = ['book.pdf', 'book_print.pdf', 'pr-026-pdf.pdf', 'pr-0-pdf.pdf', 'pr--26-pdf.pdf',
     'pr-26-pdf.pdf.backup', 'pr-26-unknown', 'xpr-26-pdf.pdf', 'pr-26-pdf.pdf\n',
     'pr-26-pdf.pdf\r\n', 'pr-26e1-pdf.pdf', 'pr-9007199254740992-pdf.pdf', 'pr-26-pdfXpdf',
@@ -92,14 +92,14 @@ test('does not select generic, malformed, prefix/suffix collision or unsafe-numb
   assert.deepEqual(f.checked, []);
 });
 
-test('open PRs and PR-number prefix collisions are retained without stopping later closed PR cleanup', async () => {
+test('オープン中のPRとPR番号の接頭辞が衝突するものを保持し、後続のクローズ済みPRの削除を続ける', async () => {
   const f = fixture({artifacts: [2, 26, 260, 27].map(number => ({id: number, name: `pr-${number}-pdf.pdf`})),
     prResponse: pr => ({...pr, state: [26, 27].includes(pr.number) ? 'closed' : 'open'})});
   await f.run();
   assert.deepEqual(f.deleted, [26, 27]);
 });
 
-test('requires matching repository, PR number and explicitly closed state from the API', async () => {
+test('APIでリポジトリとPR番号の一致、および明示的なクローズ状態を確認する', async () => {
   for (const mismatch of [
     {number: 27}, {state: 'unknown'}, {state: undefined}, {base: {repo: {full_name: 'other/repo'}}}, {base: null},
   ]) {
@@ -109,7 +109,7 @@ test('requires matching repository, PR number and explicitly closed state from t
   }
 });
 
-test('fork, Dependabot, merged and deleted-head PRs use base-repository state rather than head metadata', async () => {
+test('フォーク、Dependabot、マージ済み、head削除済みのPRはheadのメタデータではなくbaseリポジトリの状態を使う', async () => {
   for (const metadata of [
     {head: {repo: {full_name: 'contributor/fork'}}},
     {user: {login: 'dependabot[bot]'}}, {merged: true}, {head: {repo: null}},
@@ -120,7 +120,7 @@ test('fork, Dependabot, merged and deleted-head PRs use base-repository state ra
   }
 });
 
-test('collects all pages before deletion and rechecks every repeated-build artifact', async () => {
+test('削除前に全ページを収集し、繰り返しビルドされた全アーティファクトを再確認する', async () => {
   const f = fixture({artifacts: Array.from({length: 201}, (_, i) => ({id: i + 1, name: 'pr-26-pdf.pdf'}))});
   await f.run();
   assert.equal(f.deleted.length, 201);
@@ -132,7 +132,7 @@ test('collects all pages before deletion and rechecks every repeated-build artif
   }
 });
 
-test('reopening between deletions protects remaining artifacts without stopping unrelated cleanup', async () => {
+test('削除の合間にPRが再オープンされると残りのアーティファクトを保護し、無関係な削除は続ける', async () => {
   const f = fixture({artifacts: [
     {id: 1, name: 'pr-26-pdf.pdf'}, {id: 2, name: 'pr-26-print-pdf.pdf'}, {id: 3, name: 'pr-27-pdf.pdf'},
   ], prResponse: (pr, call) => ({...pr, state: pr.number === 26 && call > 1 ? 'open' : 'closed'})});
@@ -140,14 +140,14 @@ test('reopening between deletions protects remaining artifacts without stopping 
   assert.deepEqual(f.deleted, [1, 3]);
 });
 
-test('expired artifacts are not looked up or deleted', async () => {
+test('期限切れのアーティファクトは照会も削除もしない', async () => {
   const f = fixture({artifacts: [{id: 1, name: 'pr-26-pdf.pdf', expired: true}]});
   await f.run();
   assert.deepEqual(f.deleted, []);
   assert.deepEqual(f.checked, []);
 });
 
-test('artifacts uploaded after a snapshot are handled by the next run', async () => {
+test('スナップショット取得後のアップロードは次回の実行で処理する', async () => {
   const artifacts = [{id: 1, name: 'pr-26-pdf.pdf'}];
   const first = fixture({artifacts, prResponse: pr => {
     if (artifacts.length === 1) artifacts.push({id: 2, name: 'pr-26-print-pdf.pdf'});
@@ -160,7 +160,7 @@ test('artifacts uploaded after a snapshot are handled by the next run', async ()
   assert.deepEqual(next.deleted, [2]);
 });
 
-test('missing PRs and already removed artifacts are harmless', async () => {
+test('PRが見つからない場合やアーティファクトが削除済みの場合も問題なく処理する', async () => {
   const artifacts = [{id: 1, name: 'pr-26-pdf.pdf'}];
   const missing = fixture({artifacts, pullStatus: 404});
   await missing.run();
@@ -168,7 +168,7 @@ test('missing PRs and already removed artifacts are harmless', async () => {
   await fixture({artifacts, deletionStatus: 404}).run();
 });
 
-test('listing, PR lookup and deletion failures surface instead of broadening deletion', async () => {
+test('一覧取得、PR照会、削除の失敗を報告し、削除範囲を広げない', async () => {
   for (const status of [403, 429, 500]) {
     for (const stage of ['listStatus', 'pullStatus', 'deletionStatus']) {
       const f = fixture({artifacts: [{id: 1, name: 'pr-26-pdf.pdf'}, {id: 2, name: 'pr-27-pdf.pdf'}], [stage]: status});
@@ -178,7 +178,7 @@ test('listing, PR lookup and deletion failures surface instead of broadening del
   }
 });
 
-test('summary separates successful deletion, concurrent absence and protected open PRs', async () => {
+test('サマリーで削除成功、並行処理による消失、保護されたオープン中のPRを区別する', async () => {
   const f = fixture({artifacts: [
     {id: 1, name: 'pr-26-pdf.pdf'}, {id: 2, name: 'pr-26-print-pdf.pdf'},
     {id: 3, name: 'pr-27-pdf.pdf'}, {id: 4, name: 'book.pdf'},
@@ -193,7 +193,7 @@ test('summary separates successful deletion, concurrent absence and protected op
   assert.match(f.summary.text, /対象外の名前: 1 件/);
 });
 
-test('summary reports new uploads as remaining without deleting them in the same run', async () => {
+test('新規アップロードは同じ実行内で削除せず、残存分としてサマリーに表示する', async () => {
   const f = fixture({artifacts: [{id: 1, name: 'pr-26-pdf.pdf'}], verifyArtifacts: [
     {id: 2, name: 'pr-26-print-pdf.pdf'}, {id: 3, name: 'pr-27-pdf.pdf'},
   ]});
@@ -205,7 +205,7 @@ test('summary reports new uploads as remaining without deleting them in the same
   ]);
 });
 
-test('partial deletion failure preserves successful counts and fails after verification', async () => {
+test('一部の削除が失敗しても成功件数を保持し、検証後に失敗とする', async () => {
   const f = fixture({artifacts: [{id: 1, name: 'pr-26-pdf.pdf'}, {id: 2, name: 'pr-26-print-pdf.pdf'}],
     deletionStatus: id => id === 2 ? 403 : 0});
   await assert.rejects(f.run(), /API failed: 403/);
@@ -213,19 +213,19 @@ test('partial deletion failure preserves successful counts and fails after verif
   assert.deepEqual(f.summary.rows, [['#26', '2', '1', '0', '0', '0', '1', '1', '残存あり（次回対象）']]);
 });
 
-test('failed re-listing reports unknown remaining, never zero or successful verification', async () => {
+test('一覧の再取得に失敗した場合は残存数を不明とし、ゼロや検証成功として報告しない', async () => {
   const f = fixture({artifacts: [{id: 1, name: 'pr-26-pdf.pdf'}], verifyStatus: 500});
   await assert.rejects(f.run(), /API failed: 500/);
   assert.deepEqual(f.summary.rows, [['#26', '1', '1', '0', '0', '0', '0', '未確認', '未確認']]);
 });
 
-test('post-deletion PR-state lookup failure leaves state unknown and fails the run', async () => {
+test('削除後のPR状態の照会に失敗した場合は状態を不明のままにし、実行を失敗とする', async () => {
   const f = fixture({artifacts: [{id: 1, name: 'pr-26-pdf.pdf'}], pullStatus: (_, call) => call === 2 ? 500 : 0});
   await assert.rejects(f.run(), /API failed: 500/);
   assert.deepEqual(f.summary.rows, [['#26', '1', '1', '0', '0', '0', '1', '0', 'PR 状態未確認']]);
 });
 
-test('a supposedly removed artifact still present in the snapshot is an error', async () => {
+test('削除済みとされたアーティファクトがスナップショットに残っていればエラーとする', async () => {
   const artifacts = [{id: 1, name: 'pr-26-pdf.pdf'}];
   for (const deletionStatus of [undefined, 404]) {
     const f = fixture({artifacts, deletionStatus, verifyArtifacts: artifacts});
@@ -235,20 +235,20 @@ test('a supposedly removed artifact still present in the snapshot is an error', 
   }
 });
 
-test('final state recheck notices a PR reopened after its last deletion', async () => {
+test('最後の削除後にPRが再オープンされた場合も最終状態の再確認で検出する', async () => {
   const f = fixture({artifacts: [{id: 1, name: 'pr-26-pdf.pdf'}],
     prResponse: (pr, call) => ({...pr, state: call > 1 ? 'open' : 'closed'})});
   await f.run();
   assert.deepEqual(f.summary.rows, [['#26', '1', '1', '0', '0', '0', '0', '0', '確認時点で対象なし（現在 open / reopened）']]);
 });
 
-test('missing PRs are explicitly unconfirmed, not deleted or protected open PRs', async () => {
+test('見つからないPRは削除済みや保護されたオープン中のPRではなく、未確認と明示する', async () => {
   const f = fixture({artifacts: [{id: 1, name: 'pr-26-pdf.pdf'}], pullStatus: 404});
   await f.run();
   assert.deepEqual(f.summary.rows, [['#26', '1', '0', '0', '0', '1', '0', '1', 'PR 状態未確認']]);
 });
 
-test('an empty snapshot does not invent a deletion history or enumerate all PRs', async () => {
+test('スナップショットが空の場合は削除履歴を捏造せず、全PRを列挙しない', async () => {
   const f = fixture();
   await f.run();
   assert.deepEqual(f.checked, []);
@@ -256,7 +256,7 @@ test('an empty snapshot does not invent a deletion history or enumerate all PRs'
   assert.match(f.summary.text, /過去の削除・期限切れ・未生成を区別しません/);
 });
 
-test('initial list failure reports unknown scope and preserves the original API failure if summary also fails', async () => {
+test('初回の一覧取得に失敗した場合は対象範囲を不明とし、サマリーも失敗しても元のAPIエラーを保持する', async () => {
   const f = fixture({listStatus: 403});
   await assert.rejects(f.run(), /API failed: 403/);
   assert.deepEqual(f.deleted, []);
@@ -265,7 +265,7 @@ test('initial list failure reports unknown scope and preserves the original API 
   await assert.rejects(failedSummary.run(), /API failed: 403/);
 });
 
-test('upload copies carry the actual PR-specific names and preserve PDF/EPUB bytes and source names', () => {
+test('アップロード用コピーは実際のPR固有名を使い、PDF・EPUBのバイト列と元のファイル名を保持する', () => {
   const text = readFileSync('.github/workflows/pr.yml', 'utf8');
   const step = text.split('      - name: Prepare PR-specific artifact filenames\n')[1].split('      - uses:')[0];
   const shell = step.split('        run: |\n')[1].split('\n').map(line => line.replace(/^ {10}/, '')).join('\n');
@@ -293,7 +293,7 @@ test('upload copies carry the actual PR-specific names and preserve PDF/EPUB byt
   }
 });
 
-test('EPUB cleanup requires a closed PR and protects reopened, expired and unverified artifacts', async () => {
+test('EPUBの削除にはクローズ済みPRを必要とし、再オープン済み、期限切れ、未検証のアーティファクトを保護する', async () => {
   const artifacts = [{id: 1, name: 'pr-26-epub.epub'}, {id: 2, name: 'pr-26-epub.epub'}];
   for (const options of [
     {state: 'open'}, {state: 'unknown'}, {pullStatus: 404},
@@ -312,7 +312,7 @@ test('EPUB cleanup requires a closed PR and protects reopened, expired and unver
   assert.equal(reopened.summary.rows[0].at(-1), 'open / reopened のため保持');
 });
 
-test('EPUB smoke artifacts remain protected for open or unverified PRs', async () => {
+test('EPUBスモークテストのアーティファクトはPRがオープン中または未検証なら保護する', async () => {
   for (const options of [{state: 'open'}, {state: 'unknown'}, {pullStatus: 404}]) {
     const f = fixture({artifacts: [{id: 1, name: 'pr-26-epub-vrt-smoke'}], ...options});
     await f.run();

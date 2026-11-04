@@ -5,7 +5,7 @@ import epubLayout from './epub-layout.js';
 const element = (tagName, children = [], properties = {}) => ({ type: 'element', tagName, children, properties });
 const text = value => ({ type: 'text', value });
 
-test('EPUB uses supported blocks without moving diagrams or captions before their headings', () => {
+test('EPUB 対応のブロックを使い、図やキャプションを見出しの前へ移動しない', () => {
   const first = element('h2', [text('Flowchart')], { id: 'flowchart' });
   const description = element('p', [text('The following diagram')]);
   const image = element('img', [], { src: 'diagram.png', alt: 'Mermaid diagram 1' });
@@ -27,7 +27,7 @@ test('EPUB uses supported blocks without moving diagrams or captions before thei
   assert.equal(caption.properties.ariaHidden, 'true');
 });
 
-test('inline code styling does not leak onto highlighted code blocks', () => {
+test('インラインコードのスタイルを構文強調付きコードブロックに適用しない', () => {
   const inline = element('code', [text('path/')], { className: 'existing' });
   const block = element('code', [element('span', [text('return')], { className: ['token', 'keyword'] })]);
   const tree = element('section', [element('p', [inline]), element('pre', [block])]);

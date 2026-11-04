@@ -21,7 +21,7 @@ function fixture(t) {
   };
   return options;
 }
-test('each source builds independently, both use head readers, and successful commands pass', t => {
+test('各ソースを独立してビルドし、両方に head のリーダーを使い、各コマンドの成功で検証が通る', t => {
   const options = fixture(t), calls = [];
   const report = runEpubVrt({...options, run: (command, args, cwd) => { calls.push({command, args, cwd}); return options.success(command, args, cwd); }});
   assert.deepEqual(report.errors, []);
@@ -33,7 +33,7 @@ test('each source builds independently, both use head readers, and successful co
   assert.equal(mupdf.length, 2);
   assert(mupdf.every(c => c.command === (process.env.EPUB_VRT_PYTHON || 'python')));
 });
-test('nonzero renderer exit cannot pass even with a complete report and successful comparison', t => {
+test('レポートが完了し比較が成功しても、描画の非ゼロ終了を成功扱いしない', t => {
   const options = fixture(t);
   const stale = join(options.output, 'epub/before/chromium/report.json');
   mkdirSync(join(options.output, 'epub/before/chromium'), {recursive: true});
@@ -49,7 +49,7 @@ test('nonzero renderer exit cannot pass even with a complete report and successf
   assert.match(report.errors[0].reason, /Baseline chromium render failed/);
   assert.equal(JSON.parse(readFileSync(join(options.output, 'epub-report.json'))).errors.length, 1);
 });
-test('baseline without EPUB and failed source builds have explicit non-success reports', t => {
+test('比較元の EPUB 非対応やソースのビルド失敗をレポートに明示する', t => {
   const options = fixture(t);
   writeFileSync(join(options.baseline, 'package.json'), '{"scripts":{}}');
   const report = runEpubVrt({...options, run: (_command, args) => ({status: args[0] === 'run' ? 1 : 0})});
@@ -57,7 +57,7 @@ test('baseline without EPUB and failed source builds have explicit non-success r
   assert(report.errors.some(e => /Current EPUB build failed/.test(e.reason)));
 });
 
-test('successful build without an EPUB cannot reuse a stale archive', t => {
+test('ビルドが成功しても EPUB が生成されていなければ古いアーカイブを再利用しない', t => {
   const options = fixture(t);
   mkdirSync(join(options.baseline, 'output/epub'), {recursive: true});
   writeFileSync(join(options.baseline, 'output/epub/book.epub'), 'stale');
@@ -66,7 +66,7 @@ test('successful build without an EPUB cannot reuse a stale archive', t => {
   assert.equal(existsSync(join(options.baseline, 'output/epub/book.epub')), false);
 });
 
-test('both MuPDF comparisons honor an explicitly selected Python interpreter', t => {
+test('両方の MuPDF 比較で明示的に選択した Python インタープリターを使う', t => {
   const options = fixture(t), calls = [];
   const python = join(options.current, 'environment with spaces', 'python');
   const report = runEpubVrt({...options, python, run: (command, args, cwd) => {

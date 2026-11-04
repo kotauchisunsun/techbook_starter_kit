@@ -1,5 +1,5 @@
-// Real reader smoke test. No dependency on the template author's manuscript.
-// Run with npm run test:vrt after installing Playwright browsers and ImageMagick.
+// 実リーダーによるスモークテスト。テンプレート利用者の原稿には依存しない。
+// Playwright のブラウザーと ImageMagick の導入後に npm run test:vrt で実行する。
 import assert from 'node:assert/strict';
 import {mkdir, writeFile, readFile} from 'node:fs/promises';
 import {resolve, join} from 'node:path';
@@ -42,4 +42,4 @@ for (const reader of ['chromium', 'webkit', 'mupdf']) {
 }
 assert(differences.every(error => /pixels changed/.test(error.reason)), 'A rendering failure must not satisfy the deliberate-change smoke test');
 
-console.log('Real EPUB readers: repeated identical renders agree; intentional visible change fails.');
+console.log('実 EPUB リーダー: 同一内容の繰り返し描画は一致し、意図的な表示変更は比較に失敗する。');
