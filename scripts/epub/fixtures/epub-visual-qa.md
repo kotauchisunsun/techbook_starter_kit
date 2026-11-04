@@ -4,8 +4,8 @@ Run in a browser-enabled development or CI environment. The script opens the act
 
 ```sh
 npx playwright install --with-deps chromium-headless-shell
-node scripts/epub/render-epub.js output/epub/book.epub output/epub-visual
-node scripts/epub/render-epub.js path/to/original.epub output/epub-visual-original --baseline
+npm run check:epub:render -- output/epub/book.epub output/epub-visual
+npm run check:epub:render -- path/to/original.epub output/epub-visual-original --baseline
 ```
 
 The dependencies are `playwright`, `epubjs@0.3.93`, and `jszip@3.10.1`. Each run captures every spine item and every page at 600 × 780 and 360 × 780. The output directories contain page PNGs and `report.json` with spine locations, visible headings, image status, code colors, font metrics, and code/MathML overflow diagnostics. `--widths=600,360`, `--height=780`, and `--max-pages=1000` override the defaults.
@@ -37,7 +37,7 @@ Run the normal EPUB preparation first so the configured font, stylesheet, and im
 npm run prebuild:epub
 mkdir -p output/epub-stress
 npx vivliostyle build --config tmp/epub-stress.config.js
-node scripts/epub/render-epub.js output/epub-stress/stress.epub output/epub-stress-visual
+npm run check:epub:render -- output/epub-stress/stress.epub output/epub-stress-visual
 ```
 
 The long equation can legitimately reveal that an expression needs explicit multiline authoring or a renderer fallback. Do not silence that result by clipping content or shrinking the whole book. Geometry diagnostics locate possible clipping; inspect the screenshots before judging the fix.

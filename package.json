@@ -19,7 +19,7 @@
     "build:epub": "vivliostyle build --config vivliostyle.epub.config.js",
     "check:epub": "node --import tsx scripts/epub/check-epub.ts",
     "prebuild:epub": "node --import tsx scripts/epub/prepare-epub.ts",
-    "check:epub:render": "node scripts/epub/render-epub.js",
+    "check:epub:render": "node --import tsx scripts/epub/render-epub.ts",
     "lint:code": "npm run lint:js && npm run lint:shell",
     "lint:js": "eslint scripts --max-warnings=0",
     "lint:shell": "uv run --locked --only-group lint shellcheck --norc scripts/setup.sh scripts/pdf/render-pdf-pages.sh scripts/vrt/run-epub-vrt.sh",

@@ -1,27 +1,26 @@
 import test from 'node:test';
+import { runInNewContext } from 'node:vm';
+import type { ReportStatus } from './render-epub.ts';
 import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { captureSpine, contrastRatio, initializeReader, launchReaderBrowser, locationKey, missingTokenColors, overflowingFragments, parseArguments, reportFailed, serveReader } from './render-epub.js';
+import { captureSpine, contrastRatio, initializeReader, launchReaderBrowser, locationKey, missingTokenColors, overflowingFragments, parseArguments, reportFailed, serveReader, snapshotReader } from './render-epub.ts';
 
-test('両ブラウザーエンジンで、自己完結したリソースを使って実際のアーカイブを開く', async () => {
-  const previousWindow = globalThis.window;
-  let requested;
-  globalThis.window = { ePub: (input, options) => {
-    requested = { input, options };
-    return { ready: Promise.reject(new Error('Stop before DOM setup')) };
-  } };
-  try {
-    await assert.rejects(initializeReader({ width: 600, height: 780 }), /Stop before DOM setup/);
-    assert.deepEqual(requested, { input: '/book.epub', options: { replacements: 'base64' } });
-  } finally {
-    if (previousWindow === undefined) delete globalThis.window;
-    else globalThis.window = previousWindow;
-  }
+test("両ブラウザーエンジンで、自己完結したリソースを使って実際のアーカイブを開く", async () => {
+  let requested: unknown;
+  const initialize = runInNewContext(`(${initializeReader.toString()})`, {
+    setTimeout, clearTimeout,
+    window: { ePub: (input: string, options: unknown) => {
+      requested = { input, options };
+      return { ready: Promise.reject(new Error('Stop before DOM setup')) };
+    } },
+  }) as typeof initializeReader;
+  await assert.rejects(initialize({ width: 600, height: 780 }), /Stop before DOM setup/);
+  assert.deepEqual(structuredClone(requested), { input: '/book.epub', options: { replacements: 'base64' } });
 });
 
-test('EPUB 描画の既定値はデスクトップ・モバイル向けで、引数を検証する', () => {
+test("EPUB 描画の既定値はデスクトップ・モバイル向けで、引数を検証する", () => {
   const options = parseArguments(['book.epub', 'output']);
   assert.deepEqual(options.widths, [600, 360]);
   assert.equal(options.height, 780);
@@ -38,20 +37,20 @@ test('EPUB 描画の既定値はデスクトップ・モバイル向けで、引
   }
 });
 
-function location(index, page, total) {
+function location(index: number, page: number, total: number) {
   return { start: { index, cfi: `epubcfi(${index}/${page}/start)`, displayed: { page, total } },
     end: { index, cfi: `epubcfi(${index}/${page}/end)`, displayed: { page, total } } };
 }
 
-test('EPUB 描画は非線形の表紙を含む spine の全ページを撮影する', async () => {
-  let index;
-  let page;
+test("EPUB 描画は非線形の表紙を含む spine の全ページを撮影する", async () => {
+  let index = 0;
+  let page = 0;
   const spine = [{ index: 0, href: 'cover.xhtml', linear: 'no' }, { index: 1, href: 'chapter.xhtml' }, { index: 2, href: 'back.xhtml' }];
   const totals = [1, 3, 1];
-  const screenshots = [];
-  const displays = [];
+  const screenshots: string[] = [];
+  const displays: string[] = [];
   const pages = await captureSpine({
-    display: async href => { index = spine.find(item => item.href === href).index; page = 1; displays.push(href); },
+    display: async href => { index = spine.find(item => item.href === href)!.index; page = 1; displays.push(href); },
     snapshot: async () => ({ location: location(index, page, totals[index]), diagnostics: [] }),
     next: async () => { page++; },
     screenshot: async file => screenshots.push(file),
@@ -62,7 +61,7 @@ test('EPUB 描画は非線形の表紙を含む spine の全ページを撮影�
   assert.deepEqual(pages.map(item => item.spineIndex), [0, 1, 1, 1, 2]);
 });
 
-test('EPUB のページ分割は位置の反復・セクションの欠落・上限到達で失敗する', async () => {
+test("EPUB のページ分割は位置の反復・セクションの欠落・上限到達で失敗する", async () => {
   const spine = [{ index: 0, href: 'chapter.xhtml' }];
   const adapter = { display: async () => {}, next: async () => {}, screenshot: async () => {},
     snapshot: async () => ({ location: location(0, 1, 3) }) };
@@ -73,9 +72,9 @@ test('EPUB のページ分割は位置の反復・セクションの欠落・上
   assert.throws(() => locationKey({}), /did not report/);
 });
 
-test('はみ出し検出は段組みの断片を個別に扱い、章全体の幅をはみ出しとみなさない', () => {
+test("はみ出し検出は段組みの断片を個別に扱い、章全体の幅をはみ出しとみなさない", () => {
   const geometry = { origin: 20, columnWidth: 320, stride: 360 };
-  const rect = (left, right) => ({ left, right, width: right - left, height: 20 });
+  const rect = (left: number, right: number) => ({ left, right, width: right - left, height: 20 });
   assert.deepEqual(overflowingFragments([rect(20, 330), rect(380, 690), rect(740, 1060)], geometry), []);
   assert.equal(overflowingFragments([rect(20, 355)], geometry).length, 1);
   assert.equal(overflowingFragments([rect(385, 725)], geometry).length, 1);
@@ -84,8 +83,8 @@ test('はみ出し検出は段組みの断片を個別に扱い、章全体の�
   assert.deepEqual(overflowingFragments([rect(20, 600)], { origin: 0, columnWidth: NaN, stride: 360 }), []);
 });
 
-test('厳格な検証では画像欠落や数式・コードのはみ出しで失敗し、baseline でも実行時エラーは失敗にする', () => {
-  const report = { complete: true, baseline: false, errors: [], viewports: [{ pages: [{ diagnostics: [] }] }] };
+test("厳格な検証では画像欠落や数式・コードのはみ出しで失敗し、baseline でも実行時エラーは失敗にする", () => {
+  const report: ReportStatus = { complete: true, baseline: false, errors: [], viewports: [{ pages: [{ diagnostics: [] }] }] };
   assert.equal(reportFailed(report), false);
   for (const type of ['missing-image', 'code-overflow', 'math-overflow', 'unhighlighted-code', 'font-load-error']) {
     report.viewports[0].pages[0].diagnostics = [{ type }];
@@ -96,8 +95,8 @@ test('厳格な検証では画像欠落や数式・コードのはみ出しで�
   assert.equal(reportFailed({ ...report, baseline: true, complete: false }), true);
 });
 
-test('構文強調の検証は妥当な単色の句読記号・演算子や同色のグループを許容する', () => {
-  const token = (...classes) => ({ classes: ['token', ...classes], color: 'rgb(248, 248, 242)' });
+test("構文強調の検証は妥当な単色の句読記号・演算子や同色のグループを許容する", () => {
+  const token = (...classes: string[]) => ({ classes: ['token', ...classes], color: 'rgb(248, 248, 242)' });
   // Python foo(bar): only the two punctuation tokens need a color.
   assert.equal(missingTokenColors([token('punctuation'), token('punctuation')]), false);
   // foo = bar + baz: the two operator tokens intentionally share a color.
@@ -109,8 +108,8 @@ test('構文強調の検証は妥当な単色の句読記号・演算子や同�
   assert.equal(missingTokenColors([]), false);
 });
 
-test('構文強調の検証は既知の異なる色を持つトークングループを必要とする', () => {
-  const token = (type, color = 'rgb(0, 0, 0)') => ({ classes: ['token', type], color });
+test("構文強調の検証は既知の異なる色を持つトークングループを必要とする", () => {
+  const token = (type: string, color = 'rgb(0, 0, 0)') => ({ classes: ['token', type], color });
   assert.equal(missingTokenColors([token('keyword'), token('number')]), true);
   assert.equal(missingTokenColors([token('function'), token('punctuation')]), true);
   assert.equal(missingTokenColors([token('comment'), token('operator')]), true);
@@ -124,7 +123,7 @@ test('構文強調の検証は既知の異なる色を持つトークングル�
   assert.equal(browserHelper([token('keyword'), token('number')]), true);
 });
 
-test('リーダーサーバーは指定どおりのローカル素材だけを公開し、EPUB のバイト列を保つ', async t => {
+test("リーダーサーバーは指定どおりのローカル素材だけを公開し、EPUB のバイト列を保つ", async t => {
   const directory = await mkdtemp(join(tmpdir(), 'epub-reader-test-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const input = join(directory, 'book.epub');
@@ -146,8 +145,8 @@ test('リーダーサーバーは指定どおりのローカル素材だけを�
   assert.equal((await fetch(`${server.url}/book.epub`, { method: 'POST' })).status, 404);
 });
 
-test('リポジトリ内の QA 用コードは書籍本文にスクリプトを含めず、実際の EPUB.js リーダーを読み込む', async () => {
-  const source = await readFile(new URL('./render-epub.js', import.meta.url), 'utf8');
+test("リポジトリ内の QA 用コードは書籍本文にスクリプトを含めず、実際の EPUB.js リーダーを読み込む", async () => {
+  const source = await readFile(new URL('./render-epub.ts', import.meta.url), 'utf8');
   assert.match(source, /window\.ePub\('\/book\.epub'/);
   assert.match(source, /allowScriptedContent: false/);
   assert.match(source, /launchReaderBrowser\(playwright, options\.browser\)/);
@@ -158,11 +157,11 @@ test('リポジトリ内の QA 用コードは書籍本文にスクリプトを�
 });
 
 
-test('ブラウザー起動は選択したエンジンを使い、プログラムからの呼び出しでは既定値を保つ', async () => {
-  const calls = [];
+test("ブラウザー起動は選択したエンジンを使い、プログラムからの呼び出しでは既定値を保つ", async () => {
+  const calls: { engine: string; options: { headless: boolean } }[] = [];
   const engines = Object.fromEntries(['chromium', 'webkit'].map(engine => [engine, {
-    launch: async options => { calls.push({ engine, options }); return engine; },
-  }]));
+    launch: async (options: { headless: boolean }) => { calls.push({ engine, options }); return engine; },
+  }])) as Record<'chromium' | 'webkit', { launch(options: { headless: boolean }): Promise<string> }>;
   assert.equal(await launchReaderBrowser(engines), 'chromium');
   assert.equal(await launchReaderBrowser(engines, 'webkit'), 'webkit');
   assert.deepEqual(calls, [{ engine: 'chromium', options: { headless: true } }, { engine: 'webkit', options: { headless: true } }]);
@@ -170,10 +169,10 @@ test('ブラウザー起動は選択したエンジンを使い、プログラ�
   assert.equal(calls.length, 2);
 });
 
-test('コントラスト検査は不透明な RGB だけを計算し、ブラウザー内で単独動作する', () => {
+test("コントラスト検査は不透明な RGB だけを計算し、ブラウザー内で単独動作する", () => {
   assert.equal(contrastRatio('rgb(0, 0, 0)', 'rgb(255, 255, 255)'), 21);
   assert.equal(contrastRatio('rgb(40, 42, 54)', 'rgb(40, 42, 54)'), 1);
-  assert.ok(contrastRatio('rgb(248, 248, 242)', 'rgb(39, 40, 34)') > 10);
+  assert.ok((contrastRatio('rgb(248, 248, 242)', 'rgb(39, 40, 34)') ?? 0) > 10);
   assert.equal(contrastRatio('rgba(0, 0, 0, 1)', 'rgb(255, 255, 255)'), 21);
   for (const color of ['transparent', 'rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0.5)', 'color(display-p3 1 1 1)', 'rgb(300, 0, 0)']) {
     assert.equal(contrastRatio(color, 'rgb(255, 255, 255)'), null);
@@ -184,11 +183,46 @@ test('コントラスト検査は不透明な RGB だけを計算し、ブラウ
 });
 
 
-test('数式検査はネイティブ MathML とパスで描く SVG 数式の両方を対象にする', async () => {
-  const source = await readFile(new URL('./render-epub.js', import.meta.url), 'utf8');
+test("数式検査はネイティブ MathML とパスで描く SVG 数式の両方を対象にする", async () => {
+  const source = await readFile(new URL('./render-epub.ts', import.meta.url), 'utf8');
   assert.ok(source.includes(`doc.querySelectorAll('math, [role="math"], .epub-math')`));
   assert.match(source, /node\.querySelectorAll\('svg'\)/);
   assert.match(source, /concat\(svgBoxes\)/);
   assert.match(source, /entry\.svg = svgBoxes/);
   assert.match(source, /node\.querySelectorAll\('msup,msubsup'\)/);
+});
+
+
+test('tsx変換後もすべてのブラウザーコールバックが自己完結している', async () => {
+  for (const helper of [initializeReader, snapshotReader, contrastRatio, overflowingFragments, missingTokenColors]) {
+    assert.doesNotMatch(helper.toString(), /\b__name\b/, helper.name);
+  }
+  let moved = '';
+  let relocated: (() => void) | undefined;
+  const rendition = {
+    getContents: () => [],
+    display: async (href: string) => { moved = href; },
+    next: async () => { moved = 'next'; },
+    on: (_event: string, listener: () => void) => { relocated = listener; },
+    off: () => {},
+    reportLocation: () => relocated?.(),
+    currentLocation: () => location(0, 1, 1),
+  };
+  const browserWindow = {
+    ePub: () => ({ ready: Promise.resolve(), renderTo: () => rendition, spine: { spineItems: [{ index: 0, href: 'chapter.xhtml' }] } }),
+  } as unknown as Window;
+  const sandbox = {
+    window: browserWindow, setTimeout, clearTimeout,
+    requestAnimationFrame: (callback: (time: number) => void) => callback(0),
+    document: { getElementById: () => ({ style: {}, getBoundingClientRect: () => ({ left: 0, right: 600, top: 0, bottom: 780 }) }) },
+  };
+  const initialize = runInNewContext(`(${initializeReader.toString()})`, sandbox) as typeof initializeReader;
+  assert.deepEqual(structuredClone(await initialize({ width: 600, height: 780 })), [{ index: 0, href: 'chapter.xhtml', linear: undefined }]);
+  await browserWindow.epubQa.move('display', 'chapter.xhtml');
+  assert.equal(moved, 'chapter.xhtml');
+  await browserWindow.epubQa.move('next');
+  assert.equal(moved, 'next');
+  const snapshot = runInNewContext(`(${snapshotReader.toString()})`, sandbox) as typeof snapshotReader;
+  const result = await snapshot({ overflowSource: overflowingFragments.toString(), highlightSource: missingTokenColors.toString(), contrastSource: contrastRatio.toString() });
+  assert.deepEqual(structuredClone(result), { location: location(0, 1, 1), documents: [], diagnostics: [] });
 });
