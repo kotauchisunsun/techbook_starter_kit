@@ -51,7 +51,7 @@ PR と main の CI で `lint:code` を実行します。ビルド・EPUB 描画�
 
 `package.json` の対象範囲付き overrides は、影響する系列の `glob` を 14.0.3、`minimatch` を 11.0.4 に固定しています。対応する advisory は [glob の走査キャンセル不備](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4) と [minimatch のパターン展開による DoS](https://github.com/advisories/GHSA-g3hv-75wg-m249) です。上流の依存指定が修正版を採用したら、overrides を外せるか確認してください。
 
-2026-11-04 時点では、npm audit は minimatch の影響範囲を `<11.0.1` と報告しますが、同日更新の GitHub advisory は `>=7.0.0 <11.0.1` に限定しています。このため `readdir-glob` の minimatch 5.1.9 と、`shelljs` の glob 7 経由の minimatch 3.1.5 は維持しています。旧 API を壊す一括更新や監査の抑制は行いません。npm audit に残る 10 件はこの 2 インスタンスと依存元への波及で、新しい advisory が出た場合は再評価が必要です。
+2026-11-04 更新の GitHub advisory は minimatch の影響範囲を `>=7.0.0 <11.0.1` に限定しています。このため `readdir-glob` の minimatch 5.1.9 と、`shelljs` の glob 7 経由の minimatch 3.1.5 は維持しています。旧 API を壊す一括更新や監査の抑制は行いません。更新後の npm audit は 0 件です。新しい advisory が出た場合は再評価してください。
 
 PyMuPDF は 2.1 に更新しています。[CVE-2026-3029](https://github.com/advisories/GHSA-cxqh-p2w9-fmr7) の修正だけでなく、[公式変更履歴](https://pymupdf.readthedocs.io/en/latest/changes.html) が 2.0 での修正を示す CVE-2026-82035 も含めるためです。どちらも CLI のファイル抽出に関する問題で、このリポジトリの描画スクリプトはその機能を呼び出しません。描画エンジンも更新されるため、依存更新時は既存の EPUB VRT を実行します。
 
