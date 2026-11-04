@@ -21,5 +21,5 @@ export default [
     },
   },
   // These functions run inside the EPUB reader rather than Node.
-  { files: ['scripts/epub/render-epub.js'], languageOptions: { globals: globals.browser } },
+  { files: ['scripts/epub/render-epub.ts'], languageOptions: { globals: globals.browser } },
 ];

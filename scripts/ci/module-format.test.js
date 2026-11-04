@@ -105,7 +105,7 @@ test('全形式ビルドとDockerビルドは導入済みツールによるEPUB�
   assert.equal(scripts['build:epub'], 'vivliostyle build --config vivliostyle.epub.config.js');
   assert.equal(scripts['build:all'], 'npm run build && npm run build:print && npm run build:epub');
   assert.equal(scripts['check:epub'], 'node --import tsx scripts/epub/check-epub.ts');
-  assert.equal(scripts['check:epub:render'], 'node scripts/epub/render-epub.js');
+  assert.equal(scripts['check:epub:render'], 'node --import tsx scripts/epub/render-epub.ts');
   assert.match(scripts['build:docker'], /npm run build:all && npm run check:pdf -- output\/pdf\/book\.pdf output\/pdf\/book_print\.pdf && npm run check:epub/);
   assert.match(readFileSync('scripts/setup.sh', 'utf8'), /apt-get install[^\n]+\bepubcheck\b/);
 });
