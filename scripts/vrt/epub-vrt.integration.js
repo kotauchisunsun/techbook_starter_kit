@@ -29,7 +29,7 @@ const original = await fixture('original', '#000000');
 const changed = await fixture('changed', '#ff0000');
 for (const [side, input] of [['before', original], ['after', original], ['changed', changed]]) {
   for (const browser of ['chromium', 'webkit']) {
-    run(process.execPath, ['scripts/epub/render-epub.js', input, join(root, side, browser), `--browser=${browser}`, '--baseline']);
+    run(process.execPath, ['--import', import.meta.resolve('tsx'), 'scripts/epub/render-epub.ts', input, join(root, side, browser), `--browser=${browser}`, '--baseline']);
   }
   run(process.env.EPUB_VRT_PYTHON || 'python', ['scripts/epub/render-epub-mupdf.py', input, join(root, side, 'mupdf')]);
 }

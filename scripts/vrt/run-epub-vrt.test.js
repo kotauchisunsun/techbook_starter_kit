@@ -26,7 +26,7 @@ test('各ソースを独立してビルドし、両方に head のリーダー�
   const report = runEpubVrt({...options, run: (command, args, cwd) => { calls.push({command, args, cwd}); return options.success(command, args, cwd); }});
   assert.deepEqual(report.errors, []);
   assert.equal(calls.filter(c => c.command === 'npm' && c.args[0] === 'run').length, 2);
-  const renders = calls.filter(c => c.args[0]?.startsWith('scripts/epub/render-epub'));
+  const renders = calls.filter(c => c.args.some(arg => arg.startsWith('scripts/epub/render-epub')));
   assert.equal(renders.length, 6);
   assert(renders.every(c => c.cwd === options.current));
   const mupdf = renders.filter(c => c.args[0] === 'scripts/epub/render-epub-mupdf.py');
@@ -39,7 +39,7 @@ test('レポートが完了し比較が成功しても、描画の非ゼロ終�
   mkdirSync(join(options.output, 'epub/before/chromium'), {recursive: true});
   writeFileSync(stale, '{"complete":true}');
   const report = runEpubVrt({...options, run: (_command, args, cwd) => {
-    if (args[0] === 'scripts/epub/render-epub.js' && args[2].endsWith('before/chromium')) {
+    if (args[2] === 'scripts/epub/render-epub.ts' && args[4].endsWith('before/chromium')) {
       assert.equal(existsSync(stale), false);
       writeFileSync(stale, '{"complete":true}');
       return {status: 1};
