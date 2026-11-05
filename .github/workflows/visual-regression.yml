@@ -40,7 +40,7 @@ jobs:
       - uses: actions/setup-node@v7.1.0
         if: always()
         with:
-          node-version: '22'
+          node-version: '24'
           check-latest: true
           cache: npm
       - name: Install host report dependencies
@@ -54,7 +54,7 @@ jobs:
             -v "$RUNNER_TEMP/baseline:/work/baseline" \
             -v /work/current/node_modules \
             -v /work/baseline/node_modules \
-            -w /work/current node:22-trixie-slim sh -ec '
+            -w /work/current node:24-trixie-slim sh -ec '
               sh scripts/setup.sh
               apt-get install -y --no-install-recommends imagemagick
               for dir in /work/baseline /work/current; do

@@ -4,7 +4,7 @@ Vivliostyle で技術書を作るためのテンプレートです。同じ原�
 
 ## インストール時
 
-1. Node.js 22 系の最新パッチ（22.13 以上）と npm を用意し、`npm ci` と `npx playwright install chromium-headless-shell` を実行する。
+1. Node.js 24 系の最新パッチと npm を用意し、`npm ci` と `npx playwright install chromium-headless-shell` を実行する。
 2. `vivliostyle.config.js` の `title`、`author`、必要に応じて判型の `size` を本に合わせて変更する。
 3. `npm run build` と `npm run check:pdf` で通常版 PDF を確認する。EPUB は `npm run build:epub` と `npm run check:epub` で生成・検証し、`output/epub/book.epub` を対象のリーダーで開いて確認する。
 4. EPUB の検証には公式の EPUBCheck を導入する。Ubuntu・WSL は `epubcheck` パッケージ、ほかの環境は `epubcheck` コマンドか Java と `EPUBCHECK_JAR`（公式 JAR のパス）を使う。詳細は README を参照する。

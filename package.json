@@ -5,13 +5,13 @@
   "private": true,
   "license": "MIT",
   "engines": {
-    "node": "^22.13.0"
+    "node": "^24.0.0"
   },
   "scripts": {
     "build": "vivliostyle build",
     "build:print": "vivliostyle build --config vivliostyle.print.config.js --preflight press-ready-local --preflight-option gray-scale",
     "build:all": "npm run build && npm run build:print && npm run build:epub",
-    "build:docker": "docker run --rm --pull=always -v \"$PWD:/work\" -v /work/node_modules -w /work node:22-bookworm-slim sh -lc 'sh scripts/setup.sh && npm ci && npx playwright install --with-deps chromium-headless-shell && npm run build:all && npm run check:pdf -- output/pdf/book.pdf output/pdf/book_print.pdf && npm run check:epub'",
+    "build:docker": "docker run --rm --pull=always -v \"$PWD:/work\" -v /work/node_modules -w /work node:24-bookworm-slim sh -lc 'sh scripts/setup.sh && npm ci && npx playwright install --with-deps chromium-headless-shell && npm run build:all && npm run check:pdf -- output/pdf/book.pdf output/pdf/book_print.pdf && npm run check:epub'",
     "preview": "vivliostyle preview",
     "lint": "textlint \"manuscript/**/*.md\"",
     "test": "node --import tsx --test \"scripts/**/*.test.{js,ts}\"",

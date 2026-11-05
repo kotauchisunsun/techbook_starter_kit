@@ -115,6 +115,6 @@ test('コンテナー制御とホスト側レポート集約の前にtsxを導�
   assert.ok(dockerSteps.every(index => install < index), 'Host npm ci must precede Docker anonymous volume mount creation');
   assert.equal(job.steps[install].if, 'always()');
   assert.equal(job.steps[install].run, 'npm ci');
-  assert.ok(job.steps.slice(0, install).some(s => s.uses?.startsWith('actions/setup-node@') && s.with['node-version'] === '22' && s.if === 'always()'));
+  assert.ok(job.steps.slice(0, install).some(s => s.uses?.startsWith('actions/setup-node@') && s.with['node-version'] === '24' && s.if === 'always()'));
   assert.match(job.steps[combine].run, /node --import tsx scripts\/vrt\/combine-vrt-reports\.ts/);
 });
