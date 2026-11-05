@@ -87,7 +87,7 @@ Python は `.python-version` の 3.12 系、ShellCheck と PyMuPDF は `pyprojec
 - `lint:shell`: `scripts/setup.sh`・`scripts/pdf/render-pdf-pages.sh`・`scripts/vrt/run-epub-vrt.sh` を ShellCheck に直接渡します。シェルを追加したら、このコマンドの対象にも追加してください。Windows でもワイルドカード展開に依存しません。
 - ルートの設定 JS・CSS、JSON・YAML、CI 内の埋め込みコード、Python は対象外です。原稿・文書・コード例・素材・生成物も対象にしません。Ruff は不要です。
 
-TypeScript は `scripts/tsconfig.json` の strict / noEmit で実装とテストを検査します。移行中の JavaScript やルート設定は型検査の対象にしません。実行は tsx に任せ、事前コンパイルやグローバルインストールは不要です。型検査と実行テストは別々に維持します。ルートの Vivliostyle 設定は JavaScript のまま維持し、設定から使うプロセッサーの `.js` は tsx で TypeScript 実装を読み込む互換用の入口です。`npx vivliostyle` に追加のローダー指定は不要です。
+TypeScript は `scripts/tsconfig.json` の strict / noEmit で実装とテストを検査します。移行中の JavaScript やルート設定は型検査の対象にしません。実行は tsx に任せ、事前コンパイルやグローバルインストールは不要です。型検査と実行テストは別々に維持します。ルートの Vivliostyle 設定は編集しやすい JavaScript のまま維持します。`scripts/` の JavaScript は tsx を登録する `register-typescript.js` だけです。設定はこの共通入口を読み込んだ後、`await import()` で TypeScript 実装を直接読み込みます。個別の JS ラッパーは置きません。静的な TS import はローダー登録前に解決されるため使いません。`npx vivliostyle` に追加のローダー指定は不要で、Node.js 22.13 でも同じ実装・モジュールキャッシュを共有します。
 
 書き込み権限を持つVRTレポーターだけは、`actions/github-script@v9` のNode.js 24による型除去でヘルパーを直接読み込みます。信頼済みのworkflow SHAからscriptsだけを取得し、npm installやtsxを必要としない境界を維持します。TypeScriptは型除去可能な構文に制限し、この依存なし読み込みも回帰テストで検証します。
 
