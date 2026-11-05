@@ -42,7 +42,7 @@
     "@napi-rs/canvas": "1.1.0",
     "@resvg/resvg-js": "2.6.2",
     "@types/hast": "3.0.5",
-    "@types/mdast": "3.0.15",
+    "@types/mdast": "4.0.4",
     "@types/node": "26.6.6",
     "@vivliostyle/vfm": "2.7.2",
     "epubjs": "0.3.93",
