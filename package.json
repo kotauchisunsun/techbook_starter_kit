@@ -59,7 +59,7 @@
     "textlint-filter-rule-node-types": "1.1.0",
     "textlint-rule-preset-japanese": "10.0.4",
     "tsx": "4.23.15",
-    "typescript": "6.0.3",
+    "typescript": "7.0.2",
     "typescript-eslint": "8.72.1"
   },
   "overrides": {
