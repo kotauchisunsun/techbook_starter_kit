@@ -10,8 +10,9 @@ permissions:
 
 jobs:
   epub-vrt-smoke:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    if: vars.ENABLE_DEV == 'TRUE'
+    runs-on: ubuntu-slim
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7.0.1
         with:

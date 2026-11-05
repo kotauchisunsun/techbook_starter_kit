@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   test:
+    if: vars.ENABLE_DEV == 'TRUE'
     strategy:
       matrix:
         node: ['22.13.0', '24']
@@ -36,8 +37,11 @@ jobs:
 
   build:
     needs: test
+    # A disabled maintenance job must not skip ordinary publication builds.
+    # When enabled, its failures (or unexpected skips) still block publication.
+    if: ${{ !cancelled() && (needs.test.result == 'success' || (vars.ENABLE_DEV != 'TRUE' && needs.test.result == 'skipped')) }}
     runs-on: ubuntu-slim
-    timeout-minutes: 20
+    timeout-minutes: 15
     permissions:
       contents: write
     env:

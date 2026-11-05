@@ -45,3 +45,10 @@ npm run check:epub
 - `npm run build:docker`: Docker がある WSL / Linux で全形式の生成・検証をまとめて実行します。印刷用ツールと EPUBCheck はコンテナー内で導入します。
 
 テンプレート本体を変更するときの lint・テスト・描画検証は [`DEVELOPMENT.md`](DEVELOPMENT.md) を参照してください。
+
+## GitHub Actions で本を作る
+
+PR では原稿の textlint、PDF・印刷用 PDF・EPUB の生成と検証、成果物の保存を行い、main では出版物をリリースします。
+執筆には不要なコード lint・型検査・回帰テスト・VRT・追加の描画／Docker 検証は、GitHub Actions の設定変数 `ENABLE_DEV` が未設定ならスキップします。
+本を書くためにこの変数を設定する必要はありません。fork 先でも保守 CI を使いたい場合だけ、[開発ガイドの有効化手順](DEVELOPMENT.md#github-actions-の保守-ci-を有効にする)に従って設定してください。
+CodeQL や Dependabot は別の GitHub 設定です。停止・再開の方法も同ガイドに記載しています。

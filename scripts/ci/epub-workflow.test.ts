@@ -88,7 +88,7 @@ test("リリースは同じJSTタイムスタンプでPDFを2つとEPUBを1つ�
   });
 });
 
-test("main限定のリリース方針、テスト済みビルドへの依存、既存の手動PDFアーティファクトを維持する", () => {
+test("main限定のリリース方針、保守テストへの依存、既存の手動PDFアーティファクトを維持する", () => {
   assert.deepEqual(build.on, {push: {branches: ['main']}, workflow_dispatch: null});
   assert.equal(build.jobs.build.needs, 'test');
   assert.deepEqual(build.permissions, {contents: 'read'});

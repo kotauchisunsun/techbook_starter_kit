@@ -2,6 +2,47 @@
 
 テンプレート本体の設定・スクリプト・CI を変更する人向けのガイドです。本を作るための最小手順は [`README.md`](README.md)、執筆手順は [`AGENTS.md`](AGENTS.md) を参照してください。原稿の編集だけなら uv や追加の描画ツールは不要です。
 
+## GitHub Actions の保守 CI を有効にする
+
+保守 CI は opt-in です。実行するリポジトリで GitHub Actions の **Repository variable** を設定します。
+
+1. GitHub の対象リポジトリで **Settings → Secrets and variables → Actions → Variables** を開く。
+2. **New repository variable** を選び、Name を `ENABLE_DEV`、Value を `TRUE` にして **Add variable** を押す。
+3. 次の push / PR 更新から保守 CI が有効になる。VRT の変更前後比較には、さらに PR の `vrt` ラベルが必要。
+4. 無効に戻すときは値を `FALSE` にするか、このリポジトリ変数を削除する。
+
+Secret、Environment variable、`.env`、workflow 内の `env:`、ローカルシェルの環境変数ではありません。[GitHub の設定変数](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-variables)を `vars.ENABLE_DEV` で読みます。未設定は空文字列となり無効です。GitHub の文字列比較は大文字小文字を区別しないため、`true` も有効ですが、設定例は `TRUE` に統一します。
+
+設定値はソースコードには含めません。fork 先は別リポジトリの設定を使い、保守 CI を有効にする場合は fork 先で設定します。fork 元への PR と、fork 内の push / PR は実行先が異なります。実行先で `vars.ENABLE_DEV` が取得できなければ安全にスキップします。組織の変数にも同名の `ENABLE_DEV=TRUE` がある場合は継承されるため、執筆用の fork ではリポジトリ変数を `FALSE` にすると明示的に無効化できます。
+
+| 処理 | `ENABLE_DEV` 未設定 / `FALSE` | `TRUE` |
+| --- | --- | --- |
+| Node.js 22.13.0 / 24 のコード lint・型検査・Node/Python 回帰テスト | スキップ | 実行 |
+| EPUB の追加リーダー／ストレス描画・Docker 互換ビルド試験 | スキップ | 実行 |
+| EPUB VRT smoke | スキップ | 実行 |
+| PR の PDF / EPUB VRT と信頼済みレポーター | スキップ | `vrt` ラベルなど既存条件を満たす場合に実行 |
+| 原稿 textlint・PDF/印刷 PDF/EPUB ビルドと形式検証 | 継続 | 継続 |
+| 成果物・リリース・PR 通知・closed PR の成果物清掃 | 継続 | 継続 |
+
+原稿 textlint は引き続き PR で結果を通知し、指摘だけでは出版ビルドを失敗させません。保守ジョブは job の `if` でランナー起動前にスキップするため、uv・ShellCheck・追加リーダーなども準備しません。main の出版ビルドは保守テストのスキップを許可しますが、保守 CI 有効時の失敗・キャンセル・予期しないスキップでは出版しません。保守テストを無効化しても、本文や設定の誤りによる通常ビルドの失敗まで隠すことはありません。
+
+ローカルの `npm test`・`npm run lint:code`・`npm run typecheck`・`npm run test:vrt` は従来どおり明示的に実行できます。この設定では無効化しません。
+
+### CodeQL と Dependabot は別に設定する
+
+これらは GitHub 側のサービス設定であり、`ENABLE_DEV` だけでは停止しません。このテンプレートの workflow に CodeQL 定義はありません。
+
+- **CodeQL default setup**: 有効な場合は **Settings → Advanced Security → CodeQL analysis** のメニューから **Disable CodeQL** で停止できます。再開は **Set up → Default** です。停止すると脆弱性のコード解析が行われなくなります。組織のポリシーで変更できない場合は管理者へ確認してください。[公式の設定説明](https://docs.github.com/en/code-security/reference/code-scanning/troubleshoot-analysis-errors/results-different-than-expected)
+- **Dependabot version updates**: `.github/dependabot.yml` の npm / uv 更新は Actions の `vars` 条件を使えません。[fork では設定ファイルがあっても自動で有効にならない](https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/secure-your-dependencies/configure-version-updates)ため、執筆専用なら有効化は不要です。有効化済みのリポジトリで更新 PR を止める場合は、同ファイルの対象 ecosystem に `open-pull-requests-limit: 0` を追加します。再開はその行を削除します。[この指定はセキュリティ更新を無効にしません](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference#open-pull-requests-limit)。脆弱性アラートも別設定です。
+
+保守元では依存更新とセキュリティ検査を継続することを推奨します。Actions 全体を無効にすると通常の執筆ビルドや成果物も停止するため、保守だけを止める目的では使いません。
+
+### ランナーの選び方
+
+原則 `ubuntu-slim` を使います。通常ビルド、コード lint・テスト、追加 EPUB 描画、VRT smoke、通知・清掃は slim です。[slim は 1 CPU の非特権コンテナーで、実行上限は 15 分](https://docs.github.com/en/actions/reference/runners/github-hosted-runners#single-cpu-runners)のため、これらの `timeout-minutes` も 15 以下にします。ブラウザーと OS 依存パッケージはジョブ内で導入します。
+
+例外は Docker を使う `docker-build`（`ubuntu-latest`）と変更前後比較の `visual-regression`（`ubuntu-24.04`）です。slim は Docker-in-Docker に対応しないため、フル VM を維持します。長い原稿で通常ビルドや追加描画が 15 分を超える場合は、そのジョブだけフル VM へ変更してください。設定するタイムアウトだけを延長しても slim の上限は延びません。
+
 ## テンプレート本体を変更する
 
 Node.js の回帰テストを実行し、PDF・EPUB の生成と検証を確認します。全形式のビルドには README に記載した印刷用ツールと EPUBCheck が必要です。
@@ -50,7 +91,7 @@ TypeScript は `scripts/tsconfig.json` の strict / noEmit で実装とテスト
 
 書き込み権限を持つVRTレポーターだけは、`actions/github-script@v9` のNode.js 24による型除去でヘルパーを直接読み込みます。信頼済みのworkflow SHAからscriptsだけを取得し、npm installやtsxを必要としない境界を維持します。TypeScriptは型除去可能な構文に制限し、この依存なし読み込みも回帰テストで検証します。
 
-PR と main の CI で Node.js 22.13.0 / 24 の `typecheck`・`lint:code`・回帰テストを実行します。ビルド・EPUB 描画・既存回帰テストは別に維持します。原稿校正の `npm run lint` は任意の別機能です。
+PR と main の CI は `ENABLE_DEV=TRUE` の場合に Node.js 22.13.0 / 24 の `typecheck`・`lint:code`・回帰テストを実行します。ビルド・EPUB 描画・既存回帰テストは別に維持します。原稿校正の `npm run lint` は任意の別機能です。
 
 ## 依存関係のセキュリティ更新
 
@@ -107,7 +148,7 @@ npm run check:epub:mupdf -- output/epub/book.epub output/epub-mupdf
 
 PDF は変更前後の PDF 同士、EPUB は変更前後の EPUB 同士を比較します。
 
-PR に `vrt` ラベルを付けると、既存の PDF 比較と EPUB 比較を実行します。
+保守 CI を有効にして PR に `vrt` ラベルを付けると、既存の PDF 比較と EPUB 比較を実行します。
 ラベル付き PR の更新でも再実行します。他のラベルの追加では開始も実行中の比較のキャンセルもしません。
 比較元は PR の base と head の merge-base です。それぞれのソースと lockfile で出版物を生成し、
 EPUB の描画だけは head 側の同じスクリプト・依存関係・同じコンテナーで両方を処理します。
@@ -125,7 +166,7 @@ EPUB の画像は `epub/{before,after,diff}/{chromium,webkit,mupdf}/{幅}x{高�
 コメント投稿は引き続き default branch の信頼済み reporter だけが行い、PR の実行には書き込み権限を付与しません。
 workflow 名とコメント識別子は互換性のため旧 PDF 名を維持します。新しい EPUB のコメント表示対応は reporter の main へのマージ後に有効です。
 
-`Test EPUB visual comparison` CI は原稿とは独立した小さな EPUB を実際に各リーダーで二度描画し、
+`Test EPUB visual comparison` CI は保守 CI 有効時に原稿とは独立した小さな EPUB を実際に各リーダーで二度描画し、
 同一内容が成功すること、24px の検証用テキストの文字色を黒から赤へ意図的に変更した EPUB が画像差分で失敗することを確認します。
 ローカルで実行する場合は uv、ImageMagick、Playwright の Chromium / WebKit を用意し、
 `npm run test:vrt` を実行してください。CI の EPUB 比較コンテナーも同じ lockfile を使い、
