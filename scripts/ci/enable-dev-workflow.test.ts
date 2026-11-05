@@ -98,6 +98,29 @@ test('ローカルnpmコマンドに保守フラグや無効時の成功扱い�
   assert.equal(scripts.typecheck, 'tsc --project scripts/tsconfig.json');
 });
 
+test('テスト・出版ビルド・描画・Dockerの実行環境をNode.js 22系に統一する', () => {
+  const jobs = Object.values(workflows).flatMap(workflow => Object.values(workflow.jobs));
+  const steps = jobs.flatMap(job => job.steps);
+  const setup = steps.filter(step => step.uses?.startsWith('actions/setup-node@'));
+  assert.ok(setup.length > 0);
+  for (const step of setup) {
+    assert.equal(step.with['node-version'], '22');
+    assert.equal(step.with['check-latest'], true);
+  }
+  for (const workflow of [workflows.pr, workflows.build]) {
+    assert.equal('strategy' in workflow.jobs.test, false);
+  }
+  const {engines, scripts} = JSON.parse(readFileSync('package.json', 'utf8')) as {
+    engines: {node: string}; scripts: Record<string, string>;
+  };
+  assert.equal(engines.node, '^22.13.0');
+  const commands = [scripts['build:docker'], readFileSync('scripts/vrt/epub-vrt.Dockerfile', 'utf8'),
+    ...steps.map(step => step.run ?? '')];
+  const images = commands.flatMap(command => [...command.matchAll(/\bnode:([\w.-]+)/g)].map(match => match[1]));
+  assert.ok(images.length > 0);
+  for (const image of images) assert.match(image, /^22-(bookworm|trixie)-slim$/);
+});
+
 
 test('Dockerが必要なジョブだけフルVMを使い、それ以外は15分以内のslimを使う', () => {
   for (const [file, workflow] of Object.entries(workflows)) for (const [name, job] of Object.entries(workflow.jobs)) {

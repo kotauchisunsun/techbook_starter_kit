@@ -4,7 +4,7 @@ export interface Step {
   uses?: string;
   run: string;
   if?: string;
-  with: {'node-version'?: string; file_glob: boolean; tag: string; target_commit: string; 'if-no-files-found': string; archive: boolean; ref: string; file: string; message: string; name: string; path: string; header: string; 'retention-days': number; 'persist-credentials': boolean};
+  with: {'node-version'?: string; 'check-latest'?: boolean; file_glob: boolean; tag: string; target_commit: string; 'if-no-files-found': string; archive: boolean; ref: string; file: string; message: string; name: string; path: string; header: string; 'retention-days': number; 'persist-credentials': boolean};
   'continue-on-error'?: boolean;
   env: Record<string, string>
 }

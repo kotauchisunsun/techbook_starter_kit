@@ -225,7 +225,7 @@ test('信頼済みレポーターは依存関係やtsxローダーなしのNode�
   writeFileSync(join(directory, 'package.json'), '{"type":"module"}');
   const major = Number(process.versions.node.split('.')[0]);
   // github-script@v9 uses Node 24, whose native stripping needs no flag.
-  // The supported local Node 22.13 test matrix still needs this compatibility flag.
+  // Node 22.13 compatibility still needs this flag when testing the reporter locally.
   const flags = major < 24 ? ['--experimental-strip-types'] : [];
   const result = spawnSync(process.execPath, [...flags, '--input-type=module', '-e', `
     import assert from 'node:assert/strict';

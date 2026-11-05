@@ -77,7 +77,7 @@ test("EPUBは独立してビルドした両ソースに同じhead側リーダー
   assert.match(epub.run, /scripts\/vrt\/run-epub-vrt.sh/);
   const setup = readFileSync('scripts/vrt/run-epub-vrt.sh', 'utf8');
   assert.match(setup, /uv sync --locked --only-group vrt/);
-  assert.match(epub.run, /docker build -t techbook-epub-vrt - < scripts\/vrt\/epub-vrt\.Dockerfile/);
+  assert.match(epub.run, /docker build --pull -t techbook-epub-vrt - < scripts\/vrt\/epub-vrt\.Dockerfile/);
   assert.match(epub.run, /techbook-epub-vrt sh scripts\/vrt\/run-epub-vrt.sh/);
   assert.match(setup, /node --import tsx scripts\/vrt\/run-epub-vrt.ts/);
   assert.equal(job.steps.find(s => s.name === 'Combine PDF and EPUB results')!.if, 'always()');
@@ -115,6 +115,6 @@ test('コンテナー制御とホスト側レポート集約の前にtsxを導�
   assert.ok(dockerSteps.every(index => install < index), 'Host npm ci must precede Docker anonymous volume mount creation');
   assert.equal(job.steps[install].if, 'always()');
   assert.equal(job.steps[install].run, 'npm ci');
-  assert.ok(job.steps.slice(0, install).some(s => s.uses?.startsWith('actions/setup-node@') && s.with['node-version'] === '24' && s.if === 'always()'));
+  assert.ok(job.steps.slice(0, install).some(s => s.uses?.startsWith('actions/setup-node@') && s.with['node-version'] === '22' && s.if === 'always()'));
   assert.match(job.steps[combine].run, /node --import tsx scripts\/vrt\/combine-vrt-reports\.ts/);
 });
