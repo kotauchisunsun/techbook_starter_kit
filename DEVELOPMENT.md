@@ -17,7 +17,7 @@ Secret、Environment variable、`.env`、workflow 内の `env:`、ローカル�
 
 | 処理 | `ENABLE_DEV` 未設定 / `FALSE` | `TRUE` |
 | --- | --- | --- |
-| Node.js 22.13.0 / 24 のコード lint・型検査・Node/Python 回帰テスト | スキップ | 実行 |
+| Node.js 24 系のコード lint・型検査・Node/Python 回帰テスト | スキップ | 実行 |
 | EPUB の追加リーダー／ストレス描画・Docker 互換ビルド試験 | スキップ | 実行 |
 | EPUB VRT smoke | スキップ | 実行 |
 | PR の PDF / EPUB VRT と信頼済みレポーター | スキップ | `vrt` ラベルなど既存条件を満たす場合に実行 |
@@ -36,6 +36,12 @@ Secret、Environment variable、`.env`、workflow 内の `env:`、ローカル�
 - **Dependabot version updates**: `.github/dependabot.yml` の npm / uv 更新は Actions の `vars` 条件を使えません。[fork では設定ファイルがあっても自動で有効にならない](https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/secure-your-dependencies/configure-version-updates)ため、執筆専用なら有効化は不要です。有効化済みのリポジトリで更新 PR を止める場合は、同ファイルの対象 ecosystem に `open-pull-requests-limit: 0` を追加します。再開はその行を削除します。[この指定はセキュリティ更新を無効にしません](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference#open-pull-requests-limit)。脆弱性アラートも別設定です。
 
 保守元では依存更新とセキュリティ検査を継続することを推奨します。Actions 全体を無効にすると通常の執筆ビルドや成果物も停止するため、保守だけを止める目的では使いません。
+
+### Node.js の実行環境
+
+プロジェクトの実行環境は Node.js 24 系に統一します。CI は `node-version: '24'`、Docker は `node:24-bookworm-slim` / `node:24-trixie-slim` を使い、24 系の最新パッチを取り込みます。複数系列のテストマトリクスは設けません。通常・印刷用 PDF、EPUB、追加描画、VRT、型検査、lint、回帰テストを同じ系列で実行します。ローカルでも 24 系の最新パッチを使ってください。
+
+`actions/checkout`・`actions/setup-node`・`actions/github-script` などの Action 本体は、それぞれが内蔵する Node で動きます。`setup-node` が切り替えるのは後続の `run` コマンド用 Node であり、Action 内蔵の実行環境は変えません。VRT の信頼済みレポーターや成果物通知・清掃に使う `github-script@v9` も Node.js 24 を使います。Action の内部ランタイムを揃えるために旧版へ戻したり、書き込み権限を持つジョブへ npm 依存の導入を追加したりしません。
 
 ### ランナーの選び方
 
@@ -87,17 +93,17 @@ Python は `.python-version` の 3.12 系、ShellCheck と PyMuPDF は `pyprojec
 - `lint:shell`: `scripts/setup.sh`・`scripts/pdf/render-pdf-pages.sh`・`scripts/vrt/run-epub-vrt.sh` を ShellCheck に直接渡します。シェルを追加したら、このコマンドの対象にも追加してください。Windows でもワイルドカード展開に依存しません。
 - ルートの設定 JS・CSS、JSON・YAML、CI 内の埋め込みコード、Python は対象外です。原稿・文書・コード例・素材・生成物も対象にしません。Ruff は不要です。
 
-TypeScript は `scripts/tsconfig.json` の strict / noEmit で実装とテストを検査します。移行中の JavaScript やルート設定は型検査の対象にしません。実行は tsx に任せ、事前コンパイルやグローバルインストールは不要です。型検査と実行テストは別々に維持します。ルートの Vivliostyle 設定は編集しやすい JavaScript のまま維持します。`scripts/` の JavaScript は tsx を登録する `register-typescript.js` だけです。設定はこの共通入口を読み込んだ後、`await import()` で TypeScript 実装を直接読み込みます。個別の JS ラッパーは置きません。静的な TS import はローダー登録前に解決されるため使いません。`npx vivliostyle` に追加のローダー指定は不要で、Node.js 22.13 でも同じ実装・モジュールキャッシュを共有します。
+TypeScript は `scripts/tsconfig.json` の strict / noEmit で実装とテストを検査します。移行中の JavaScript やルート設定は型検査の対象にしません。実行は tsx に任せ、事前コンパイルやグローバルインストールは不要です。型検査と実行テストは別々に維持します。ルートの Vivliostyle 設定は編集しやすい JavaScript のまま維持します。`scripts/` の JavaScript は tsx を登録する `register-typescript.js` だけです。設定はこの共通入口を読み込んだ後、`await import()` で TypeScript 実装を直接読み込みます。個別の JS ラッパーは置きません。静的な TS import はローダー登録前に解決されるため使いません。`npx vivliostyle` に追加のローダー指定は不要で、Node.js 24 で同じ実装・モジュールキャッシュを共有します。
 
 書き込み権限を持つVRTレポーターだけは、`actions/github-script@v9` のNode.js 24による型除去でヘルパーを直接読み込みます。信頼済みのworkflow SHAからscriptsだけを取得し、npm installやtsxを必要としない境界を維持します。TypeScriptは型除去可能な構文に制限し、この依存なし読み込みも回帰テストで検証します。
 
-PR と main の CI は `ENABLE_DEV=TRUE` の場合に Node.js 22.13.0 / 24 の `typecheck`・`lint:code`・回帰テストを実行します。ビルド・EPUB 描画・既存回帰テストは別に維持します。原稿校正の `npm run lint` は任意の別機能です。
+PR と main の CI は `ENABLE_DEV=TRUE` の場合に Node.js 24 系の `typecheck`・`lint:code`・回帰テストを実行します。ビルド・EPUB 描画・既存回帰テストは別に維持します。原稿校正の `npm run lint` は任意の別機能です。
 
 ## 依存関係のセキュリティ更新
 
 `package.json` の対象範囲付き overrides は、影響する系列の `glob` を 14.0.3、`minimatch` を 11.0.4 に固定しています。対応する advisory は [glob の走査キャンセル不備](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4) と [minimatch のパターン展開による DoS](https://github.com/advisories/GHSA-g3hv-75wg-m249) です。上流の依存指定が修正版を採用したら、overrides を外せるか確認してください。
 
-Node.js 22.13.0 に同梱される npm 10.9.2 の Arborist は、overrides の対象範囲を置換後の `edge.spec` でも再評価します（npm 11.9.0 は置換前の `edge.rawSpec` を使います）。修正版が範囲外だと一部の依存で override が外れ、`npm ci` が lockfile 不整合になります。このため範囲の上限には固定先の 14.0.3 / 11.0.4 も含めています。脆弱性の影響範囲が広がったという意味ではなく、glob 7 と minimatch 3 / 5 は引き続き対象外です。
+以前対応していた Node.js 22.13.0 に同梱される npm 10.9.2 の Arborist は、overrides の対象範囲を置換後の `edge.spec` でも再評価します（npm 11.9.0 は置換前の `edge.rawSpec` を使います）。修正版が範囲外だと一部の依存で override が外れ、`npm ci` が lockfile 不整合になります。このため範囲の上限には固定先の 14.0.3 / 11.0.4 も含めています。脆弱性の影響範囲が広がったという意味ではなく、glob 7 と minimatch 3 / 5 は引き続き対象外です。
 
 2026-11-04 更新の GitHub advisory は minimatch の影響範囲を `>=7.0.0 <11.0.1` に限定しています。このため `readdir-glob` の minimatch 5.1.9 と、`shelljs` の glob 7 経由の minimatch 3.1.5 は維持しています。旧 API を壊す一括更新や監査の抑制は行いません。更新後の npm audit は 0 件です。新しい advisory が出た場合は再評価してください。
 

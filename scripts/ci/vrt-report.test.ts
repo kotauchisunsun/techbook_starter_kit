@@ -223,11 +223,8 @@ test('信頼済みレポーターは依存関係やtsxローダーなしのNode�
     writeFileSync(join(directory, file), readFileSync(new URL(file, import.meta.url)));
   }
   writeFileSync(join(directory, 'package.json'), '{"type":"module"}');
-  const major = Number(process.versions.node.split('.')[0]);
-  // github-script@v9 uses Node 24, whose native stripping needs no flag.
-  // The supported local Node 22.13 test matrix still needs this compatibility flag.
-  const flags = major < 24 ? ['--experimental-strip-types'] : [];
-  const result = spawnSync(process.execPath, [...flags, '--input-type=module', '-e', `
+  // Both the project and github-script@v9 use Node 24 native type stripping.
+  const result = spawnSync(process.execPath, ['--input-type=module', '-e', `
     import assert from 'node:assert/strict';
     import {reportLines, prepare, publish} from './vrt-report.ts';
     import {formatExpiryDate} from './pr-artifact-notice.ts';

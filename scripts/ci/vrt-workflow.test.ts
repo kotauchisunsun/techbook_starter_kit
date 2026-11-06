@@ -77,7 +77,7 @@ test("EPUBは独立してビルドした両ソースに同じhead側リーダー
   assert.match(epub.run, /scripts\/vrt\/run-epub-vrt.sh/);
   const setup = readFileSync('scripts/vrt/run-epub-vrt.sh', 'utf8');
   assert.match(setup, /uv sync --locked --only-group vrt/);
-  assert.match(epub.run, /docker build -t techbook-epub-vrt - < scripts\/vrt\/epub-vrt\.Dockerfile/);
+  assert.match(epub.run, /docker build --pull -t techbook-epub-vrt - < scripts\/vrt\/epub-vrt\.Dockerfile/);
   assert.match(epub.run, /techbook-epub-vrt sh scripts\/vrt\/run-epub-vrt.sh/);
   assert.match(setup, /node --import tsx scripts\/vrt\/run-epub-vrt.ts/);
   assert.equal(job.steps.find(s => s.name === 'Combine PDF and EPUB results')!.if, 'always()');

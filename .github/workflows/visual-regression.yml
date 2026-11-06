@@ -41,13 +41,14 @@ jobs:
         if: always()
         with:
           node-version: '24'
+          check-latest: true
           cache: npm
       - name: Install host report dependencies
         if: always()
         run: npm ci
       - name: Build, render, and compare PDFs in Docker
         run: |
-          docker run --rm \
+          docker run --rm --pull=always \
             -e CI=true \
             -v "$GITHUB_WORKSPACE:/work/current" \
             -v "$RUNNER_TEMP/baseline:/work/baseline" \
@@ -72,7 +73,7 @@ jobs:
       - name: Build, render, and compare EPUBs in Docker
         if: ${{ !cancelled() }}
         run: |
-          docker build -t techbook-epub-vrt - < scripts/vrt/epub-vrt.Dockerfile
+          docker build --pull -t techbook-epub-vrt - < scripts/vrt/epub-vrt.Dockerfile
           docker run --rm \
             -e CI=true \
             -v "$GITHUB_WORKSPACE:/work/current" \
