@@ -48,7 +48,7 @@
     "epubjs": "0.3.93",
     "eslint": "10.14.0",
     "globals": "17.14.0",
-    "hast-util-from-html": "2.0.3",
+    "hast-util-from-html": "2.1.0",
     "jszip": "3.10.2",
     "mermaid-isomorphic": "3.1.0",
     "pdf-lib": "1.17.1",
