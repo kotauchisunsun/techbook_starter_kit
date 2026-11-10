@@ -52,7 +52,7 @@
     "jszip": "3.10.2",
     "mermaid-isomorphic": "3.1.0",
     "pdf-lib": "1.17.1",
-    "playwright": "1.64.1",
+    "playwright": "1.65.0",
     "prismjs": "1.30.0",
     "textlint": "15.8.0",
     "textlint-filter-rule-allowlist": "4.0.0",
