@@ -32,7 +32,7 @@
     "@mitsuharu/vivliostyle-theme-noto-sans-jp": "0.2.0",
     "@vivliostyle/cli": "11.4.0",
     "@vivliostyle/theme-base": "3.0.1",
-    "@vivliostyle/theme-techbook": "3.1.0",
+    "@vivliostyle/theme-techbook": "3.1.1",
     "press-ready": "4.0.3"
   },
   "devDependencies": {
