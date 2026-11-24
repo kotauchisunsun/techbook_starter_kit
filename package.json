@@ -46,7 +46,7 @@
     "@types/node": "26.6.6",
     "@vivliostyle/vfm": "2.7.2",
     "epubjs": "0.3.93",
-    "eslint": "10.14.0",
+    "eslint": "10.15.0",
     "globals": "17.14.0",
     "hast-util-from-html": "2.1.0",
     "jszip": "3.10.2",
