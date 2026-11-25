@@ -54,7 +54,7 @@
     "pdf-lib": "1.17.1",
     "playwright": "1.65.1",
     "prismjs": "1.30.0",
-    "textlint": "16.0.0",
+    "textlint": "16.1.2",
     "textlint-filter-rule-allowlist": "4.0.0",
     "textlint-filter-rule-node-types": "1.1.0",
     "textlint-rule-preset-japanese": "10.0.4",
